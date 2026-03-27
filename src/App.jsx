@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { RAAGAM, JANYA_BY_MELA, swaraLabel } from './data/ragam'
+import { TAALAM } from './data/talam'
 
 const KATTAI = [
   {l:"½",f:130.81},{l:"1",f:138.59},{l:"1½",f:146.83},{l:"2",f:155.56},
@@ -6,116 +8,252 @@ const KATTAI = [
   {l:"4½",f:207.65},{l:"5",f:220.00},{l:"5½",f:233.08},{l:"6",f:246.94}
 ]
 
-const RAGAS = [
-  {name:"Mayamalavagowla", s:[{l:"S",v:0},{l:"R₁",v:1},{l:"G₃",v:4},{l:"M₁",v:5},{l:"P",v:7},{l:"D₁",v:8},{l:"N₃",v:11}]},
-  {name:"Shankarabharanam", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₃",v:4},{l:"M₁",v:5},{l:"P",v:7},{l:"D₂",v:9},{l:"N₃",v:11}]},
-  {name:"Kalyani", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₃",v:4},{l:"M₂",v:6},{l:"P",v:7},{l:"D₂",v:9},{l:"N₃",v:11}]},
-  {name:"Kharaharapriya", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₂",v:3},{l:"M₁",v:5},{l:"P",v:7},{l:"D₂",v:9},{l:"N₂",v:10}]},
-  {name:"Harikambhoji", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₃",v:4},{l:"M₁",v:5},{l:"P",v:7},{l:"D₂",v:9},{l:"N₂",v:10}]},
-  {name:"Mohanam", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₃",v:4},{l:"P",v:7},{l:"D₂",v:9}]},
-  {name:"Hamsadhwani", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₃",v:4},{l:"P",v:7},{l:"N₃",v:11}]},
-  {name:"Hindolam", s:[{l:"S",v:0},{l:"G₂",v:3},{l:"M₁",v:5},{l:"D₁",v:8},{l:"N₂",v:10}]},
-  {name:"Abhogi", s:[{l:"S",v:0},{l:"R₂",v:2},{l:"G₂",v:3},{l:"M₁",v:5},{l:"D₂",v:9}]},
-]
-
-// o = swara offset from row base (null=rest), a = anga type, s = is anga start
-// Patterns derived from Purandara Dasa sapta tala alankaram reference
-const TALAS = [
-  {
-    name:"Eka", struct:"I₄", beats:4,
-    pat:[{o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0}]
-  },
-  {
-    name:"Rupaka", struct:"O I₄", beats:6,
-    pat:[
-      {o:0,a:'D',s:1},{o:1,a:'D',s:0},
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0}
-    ]
-  },
-  {
-    name:"Triputa", struct:"I₃ O O", beats:7,
-    pat:[
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},
-      {o:0,a:'D',s:1},{o:1,a:'D',s:0},
-      {o:2,a:'D',s:1},{o:3,a:'D',s:0}
-    ]
-  },
-  {
-    name:"Matya", struct:"I₄ O I₄", beats:10,
-    pat:[
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:1,a:'L',s:0},
-      {o:0,a:'D',s:1},{o:1,a:'D',s:0},
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0}
-    ]
-  },
-  {
-    name:"Jhumpa", struct:"I₇ U O", beats:10,
-    pat:[
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},
-      {o:0,a:'L',s:0},{o:1,a:'L',s:0},{o:0,a:'L',s:0},{o:1,a:'L',s:0},
-      {o:2,a:'U',s:1},
-      {o:3,a:'D',s:1},{o:null,a:'D',s:0}
-    ]
-  },
-  {
-    name:"Dhruva", struct:"I₄ O I₄ I₄", beats:14,
-    pat:[
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0},
-      {o:2,a:'D',s:1},{o:1,a:'D',s:0},
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:1,a:'L',s:0},
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0}
-    ]
-  },
-  {
-    name:"Ata", struct:"I₅ I₅ O O", beats:14,
-    pat:[
-      {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:null,a:'L',s:0},{o:2,a:'L',s:0},{o:null,a:'L',s:0},
-      {o:0,a:'L',s:1},{o:null,a:'L',s:0},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:null,a:'L',s:0},
-      {o:3,a:'D',s:1},{o:null,a:'D',s:0},
-      {o:3,a:'D',s:1},{o:null,a:'D',s:0}
-    ]
-  },
-]
+// ── Theme ──────────────────────────────────────────────────────
+const T = {
+  bg:       '#0a0a0a',
+  sidebar:  '#111111',
+  surface:  '#1a1a1a',
+  border:   '#2a2a2a',
+  text:     '#f0ebe0',
+  muted:    '#888',
+  dim:      '#444',
+  amber:    '#d4a843',
+  amberBg:  '#2a1f0a',
+  amberBdr: '#5a3a0a',
+  teal:     '#3eb489',
+  tealBg:   '#0a2018',
+  tealBdr:  '#1a5038',
+  blue:     '#5a9fd4',
+  blueBg:   '#0a1828',
+  blueBdr:  '#1a3858',
+  red:      '#e24b4a',
+  redBg:    '#280a0a',
+  redBdr:   '#5a1a1a',
+}
 
 function hz(base, semi) { return base * Math.pow(2, semi / 12) }
+
+function playSequence(notes, baseF, ctxRef) {
+  const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
+  if (ctx.state === 'suspended') ctx.resume()
+  const dur = 0.4
+  notes.forEach((semi, i) => {
+    const t = ctx.currentTime + i * dur
+    const o = ctx.createOscillator(), g = ctx.createGain()
+    o.connect(g); g.connect(ctx.destination)
+    o.type = 'sine'; o.frequency.value = hz(baseF, semi)
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(0.22, t + 0.02)
+    g.gain.setValueAtTime(0.22, t + dur * 0.6)
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95)
+    o.start(t); o.stop(t + dur)
+  })
+}
+
+function playSingle(semi, baseF, ctxRef) {
+  const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
+  if (ctx.state === 'suspended') ctx.resume()
+  const dur = 0.6
+  const t = ctx.currentTime
+  const o = ctx.createOscillator(), g = ctx.createGain()
+  o.connect(g); g.connect(ctx.destination)
+  o.type = 'sine'; o.frequency.value = hz(baseF, semi)
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(0.22, t + 0.02)
+  g.gain.setValueAtTime(0.22, t + dur * 0.6)
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95)
+  o.start(t); o.stop(t + dur)
+}
 
 function buildRows(raga, tala, baseF) {
   const upper = {l:'Ṡ', v:12}
   const asc = [...raga.s, upper]
-  const desc = [...asc].reverse()
   const rows = []
-
-  const makeRow = (swaras, base, ascending) => ({
+  const makeRow = (swaras, base) => ({
     beats: tala.pat.map(p => {
       const sw = p.o !== null ? swaras[base + p.o] : null
-      return {
-        freq: sw ? hz(baseF, sw.v) : null,
-        label: sw ? sw.l : '·',
-        anga: p.a,
-        angaStart: !!p.s,
-        isRest: p.o === null,
-      }
+      return { freq: sw ? hz(baseF, sw.v) : null, label: sw ? sw.l : '·', anga: p.a, angaStart: !!p.s }
     }),
-    ascending,
     baseLabel: swaras[base].l
   })
-
   const n = asc.length
-  for (let r = 0; r <= n - 4; r++) rows.push(makeRow(asc, r, true))
-  for (let r = 0; r <= n - 4; r++) rows.push(makeRow(desc, r, false))
+  const desc = [...asc].reverse()
+  for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(asc, r), ascending: true})
+  for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(desc, r), ascending: false})
   return rows
 }
 
+// ── Raga Search ────────────────────────────────────────────────
+function RAAGAMearch({ value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase()
+    return RAAGAM.filter(r => r.name.toLowerCase().includes(q))
+  }, [query])
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selected = RAAGAM[value]
+
+  return (
+    <div ref={ref} style={{position:'relative'}}>
+      <input
+        value={open ? query : selected?.name || ''}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        placeholder="Search rāgam..."
+        style={{width:'100%', padding:'8px 10px',
+          border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
+          background:T.surface, color:T.text, boxSizing:'border-box'}}
+      />
+      {open && filtered.length > 0 && (
+        <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:100,
+          background:T.surface, border:`0.5px solid ${T.border}`, borderRadius:6,
+          maxHeight:260, overflowY:'auto', marginTop:2,
+          boxShadow:'0 4px 16px rgba(0,0,0,0.5)'}}>
+          {filtered.map((r, i) => {
+            const idx = RAAGAM.indexOf(r)
+            const isSelected = idx === value
+            return (
+              <div key={i} onMouseDown={() => { onChange(idx); setOpen(false); setQuery('') }}
+                style={{padding:'8px 12px', cursor:'pointer', fontSize:13,
+                  background: isSelected ? T.amberBg : 'transparent',
+                  borderBottom:`0.5px solid ${T.border}`}}>
+                <div style={{fontWeight: isSelected ? 500 : 400,
+                  color: isSelected ? T.amber : T.text}}>{r.name}</div>
+                <div style={{fontSize:11, color:T.muted, marginTop:1}}>
+                  {r.type === 'melakartha'
+                    ? `Melakartha · #${r.mela}`
+                    : `Janya · ${r.melaName} (${r.mela})`}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Raga Info Panel ────────────────────────────────────────────
+function RagaPanel({ raga, baseF, ctxRef }) {
+  if (!raga) return null
+  const swCount = raga.s.length
+  const swLabel = swaraLabel(swCount)
+  const janyaList = raga.type === 'melakartha' ? (JANYA_BY_MELA[raga.mela] || []) : []
+
+  const upper = { l: 'Ṡ', v: 12 }
+  const aroSwaras = [...raga.s, upper]
+  const avoSwaras = [upper, ...[...raga.s].reverse()]
+
+  const badge = (label, bg, color, border) => (
+    <span style={{fontSize:11, padding:'2px 8px', borderRadius:5, fontWeight:500,
+      background:bg, color, border:`0.5px solid ${border}`}}>
+      {label}
+    </span>
+  )
+
+  const playBtn = (swaras) => (
+    <button
+      onClick={() => playSequence(swaras.map(s => s.v), baseF, ctxRef)}
+      style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:4,
+        color:T.amber, fontSize:10, padding:'1px 7px', cursor:'pointer',
+        letterSpacing:'0.05em'}}>
+      ▶
+    </button>
+  )
+
+  const swaraChip = (sw, i) => (
+    <span key={i}
+      onClick={() => playSingle(sw.v, baseF, ctxRef)}
+      style={{display:'inline-flex', alignItems:'center', justifyContent:'center',
+        minWidth:28, padding:'2px 7px', borderRadius:5, fontSize:12, fontWeight:500,
+        background:T.surface, border:`0.5px solid ${T.border}`,
+        color:T.text, margin:'0 2px 3px', cursor:'pointer',
+        transition:'background 0.1s'}}
+      onMouseEnter={e => e.currentTarget.style.background = T.amberBg}
+      onMouseLeave={e => e.currentTarget.style.background = T.surface}>
+      {sw.l}
+    </span>
+  )
+
+  return (
+    <div style={{fontSize:13, color:T.text}}>
+      <div style={{fontWeight:500, fontSize:15, marginBottom:8, color:T.text}}>
+        {raga.name}
+      </div>
+
+      <div style={{display:'flex', gap:5, marginBottom:14, flexWrap:'wrap'}}>
+        {raga.type === 'melakartha'
+          ? badge(`Melakartha · #${raga.mela}`, T.blueBg, T.blue, T.blueBdr)
+          : badge(`Janya · ${raga.melaName} (${raga.mela})`, T.tealBg, T.teal, T.tealBdr)}
+        {raga.vakra && badge('Vakra', T.amberBg, T.amber, T.amberBdr)}
+      </div>
+
+      <div style={{marginBottom:12}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:5}}>
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>ĀROHANA</div>
+          {playBtn(aroSwaras)}
+        </div>
+        <div style={{display:'flex', flexWrap:'wrap'}}>
+          {aroSwaras.map((sw, i) => swaraChip(sw, i))}
+        </div>
+      </div>
+
+      <div style={{marginBottom:12}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:5}}>
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>AVAROHANA</div>
+          {playBtn(avoSwaras)}
+        </div>
+        <div style={{display:'flex', flexWrap:'wrap'}}>
+          {avoSwaras.map((sw, i) => swaraChip(sw, i))}
+        </div>
+      </div>
+
+      <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:10, marginBottom:12}}>
+        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>SWARAS</div>
+        <div style={{fontSize:12, color:T.dim}}>{swCount} notes · {swLabel}</div>
+      </div>
+
+      {raga.vakra && (
+        <div style={{background:T.amberBg, borderRadius:6, padding:'8px 10px', marginBottom:12,
+          fontSize:11, color:T.amber, border:`0.5px solid ${T.amberBdr}`}}>
+          Avarohana differs — learn the correct descent from your teacher.
+        </div>
+      )}
+
+      {janyaList.length > 0 && (
+        <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:10}}>
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:6}}>
+            JANYA RAAGAM ({janyaList.length})
+          </div>
+          <div style={{fontSize:11, color:T.dim, lineHeight:1.9}}>
+            {janyaList.join(' · ')}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const [ragaIdx, setRagaIdx]   = useState(0)
-  const [talaIdx, setTalaIdx]   = useState(0)
+  const [ragaIdx, setRagaIdx]     = useState(14)
+  const [talaIdx, setTalaIdx]     = useState(0)
   const [kattaiIdx, setKattaiIdx] = useState(4)
-  const [bpm, setBpm]           = useState(60)
-  const [playing, setPlaying]   = useState(false)
-  const [droneOn, setDroneOn]   = useState(false)
-  const [metroOn, setMetroOn]   = useState(true)
-  const [swaraOn, setSwaraOn]   = useState(true)
-  const [active, setActive]     = useState(null) // {row, beat}
+  const [bpm, setBpm]             = useState(60)
+  const [playing, setPlaying]     = useState(false)
+  const [droneOn, setDroneOn]     = useState(false)
+  const [metroOn, setMetroOn]     = useState(true)
+  const [swaraOn, setSwaraOn]     = useState(true)
+  const [active, setActive]       = useState(null)
 
   const ctxRef   = useRef(null)
   const droneRef = useRef([])
@@ -123,8 +261,8 @@ export default function App() {
   const posRef   = useRef({row:0, beat:0})
   const stRef    = useRef({})
 
-  const raga  = RAGAS[ragaIdx]
-  const tala  = TALAS[talaIdx]
+  const raga  = RAAGAM[ragaIdx]
+  const tala  = TAALAM[talaIdx]
   const baseF = KATTAI[kattaiIdx].f
   const rows  = useMemo(() => buildRows(raga, tala, baseF), [ragaIdx, talaIdx, kattaiIdx])
   const ascCount = rows.filter(r => r.ascending).length
@@ -169,11 +307,9 @@ export default function App() {
     const b = s.rows[row].beats[beat]
     const dur = 60 / s.bpm
     const now = ctx.currentTime
-
     if (s.swaraOn) playNote(ctx, b.freq, now, dur)
     if (s.metroOn) playClick(ctx, now, b.anga, b.angaStart)
     setActive({row, beat})
-
     let nr = row, nb = beat + 1
     if (nb >= s.rows[row].beats.length) { nb = 0; nr = (row + 1) % s.rows.length }
     posRef.current = {row: nr, beat: nb}
@@ -184,10 +320,8 @@ export default function App() {
   useEffect(() => { if (playing) tick() }, [playing])
 
   function stop() {
-    setPlaying(false)
-    clearTimeout(timerRef.current)
-    setActive(null)
-    posRef.current = {row:0, beat:0}
+    setPlaying(false); clearTimeout(timerRef.current)
+    setActive(null); posRef.current = {row:0, beat:0}
   }
 
   useEffect(() => () => stop(), [])
@@ -196,8 +330,7 @@ export default function App() {
     getCtx()
     if (droneOn) {
       droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
-      droneRef.current = []
-      setDroneOn(false)
+      droneRef.current = []; setDroneOn(false)
     } else {
       const ctx = getCtx()
       const master = ctx.createGain(); master.gain.value = 0.12; master.connect(ctx.destination)
@@ -208,123 +341,170 @@ export default function App() {
           o.connect(gn); gn.connect(master); o.start()
           droneRef.current.push(o)
         })
-      droneRef.current.push(master)
-      setDroneOn(true)
+      droneRef.current.push(master); setDroneOn(true)
     }
   }
 
-  // Chip style — anga separators shown as left margin
   const chip = (isActive, angaStart, beatIdx) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center',
-    minWidth:30, padding:'3px 6px', borderRadius:5, fontSize:13,
-    border: isActive ? '0.5px solid #ba7517' : '0.5px solid #e8e8e8',
-    background: isActive ? '#854F0B' : '#fff',
-    color: isActive ? '#fff' : '#1a1a1a',
-    fontWeight: isActive ? 500 : 400,
-    marginLeft: (angaStart && beatIdx !== 0) ? 10 : 2,
-    borderLeft: (angaStart && beatIdx !== 0) ? '2px solid #d0d0d0' : undefined,
-    paddingLeft: (angaStart && beatIdx !== 0) ? 8 : 6,
+    minWidth:28, padding:'3px 6px', borderRadius:5, fontSize:12,
+    border: isActive ? `0.5px solid ${T.amber}` : `0.5px solid ${T.border}`,
+    background: isActive ? T.amber : T.surface,
+    color: isActive ? '#0a0a0a' : T.text,
+    fontWeight: isActive ? 600 : 400,
+    marginLeft: (angaStart && beatIdx !== 0) ? 8 : 2,
     transition: 'background 0.06s',
   })
 
-  const btn = (active, color) => {
-    const c = {teal:['#e1f5ee','#085041','#0f6e56'],blue:['#e6f1fb','#0c447c','#185fa5'],amber:['#faeeda','#633806','#ba7517'],red:['#fcebeb','#a32d2d','#e24b4a']}[color]
-    return {fontFamily:'inherit',fontSize:13,padding:'7px 14px',borderRadius:6,cursor:'pointer',
-      border: active ? `0.5px solid ${c[2]}` : '0.5px solid #e2e2e2',
-      background: active ? c[0] : '#f7f7f5',
-      color: active ? c[1] : '#555'}
+  const btn = (isActive, color) => {
+    const c = {
+      teal:  [T.tealBg,  T.teal,  T.tealBdr],
+      blue:  [T.blueBg,  T.blue,  T.blueBdr],
+      amber: [T.amberBg, T.amber, T.amberBdr],
+      red:   [T.redBg,   T.red,   T.redBdr],
+    }[color]
+    return {
+      fontFamily:'inherit', fontSize:12, padding:'6px 12px', borderRadius:6, cursor:'pointer',
+      border: isActive ? `0.5px solid ${c[2]}` : `0.5px solid ${T.border}`,
+      background: isActive ? c[0] : T.surface,
+      color: isActive ? c[1] : T.muted,
+    }
   }
 
-  const sel = {width:'100%',padding:'6px 8px',border:'0.5px solid #e2e2e2',borderRadius:6,fontSize:13,background:'#fff',color:'#1a1a1a'}
-  const lbl = {fontSize:11,color:'#999',letterSpacing:'0.05em',marginBottom:5}
+  const sel = {
+    width:'100%', padding:'6px 8px',
+    border:`0.5px solid ${T.border}`, borderRadius:6,
+    fontSize:12, background:T.surface, color:T.text,
+  }
+
+  const lbl = {fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:4}
 
   return (
-    <div style={{padding:'1.25rem 1rem',maxWidth:920,margin:'0 auto',fontFamily:'system-ui,sans-serif'}}>
+    <div style={{display:'grid', gridTemplateColumns:'240px 1fr', minHeight:'100vh',
+      fontFamily:'system-ui, sans-serif', fontSize:13,
+      background:T.bg, color:T.text}}>
 
-      <div style={{display:'flex',alignItems:'baseline',gap:12,marginBottom:'1.25rem',paddingBottom:'1rem',borderBottom:'0.5px solid #e2e2e2'}}>
-        <h1 style={{fontSize:20,fontWeight:500,color:'#1a1a1a',margin:0}}>Panchamam</h1>
-        <span style={{fontSize:12,color:'#bbb'}}>Sapta Tāla Alankāram · Phase 1</span>
-      </div>
+      {/* ── Sidebar ── */}
+      <div style={{borderRight:`0.5px solid ${T.border}`, padding:'20px 16px',
+        background:T.sidebar, overflowY:'auto',
+        display:'flex', flexDirection:'column', gap:20}}>
 
-      {/* Selectors */}
-      <div style={{display:'grid',gridTemplateColumns:'2fr 2fr 1fr',gap:10,marginBottom:12}}>
+        <div style={{paddingBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{fontSize:18, fontWeight:600, color:T.amber, letterSpacing:'-0.01em'}}>
+            Panchamam
+          </div>
+          <div style={{fontSize:11, color:T.muted, marginTop:2}}>
+            Sapta Tāla Alankāram · Phase 1
+          </div>
+        </div>
+
         <div>
           <div style={lbl}>RĀGAM</div>
-          <select style={sel} value={ragaIdx} onChange={e=>{stop();setRagaIdx(+e.target.value)}}>
-            {RAGAS.map((r,i)=><option key={i} value={i}>{r.name}</option>)}
-          </select>
+          <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
         </div>
-        <div>
-          <div style={lbl}>TĀLAM</div>
-          <select style={sel} value={talaIdx} onChange={e=>{stop();setTalaIdx(+e.target.value)}}>
-            {TALAS.map((t,i)=><option key={i} value={i}>{t.name} — {t.struct} ({t.beats} beats)</option>)}
-          </select>
-        </div>
-        <div>
-          <div style={lbl}>KATTAI (SHRUTI)</div>
-          <select style={sel} value={kattaiIdx} onChange={e=>setKattaiIdx(+e.target.value)}>
-            {KATTAI.map((k,i)=><option key={i} value={i}>Kattai {k.l}</option>)}
-          </select>
+
+        <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
+          <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
         </div>
       </div>
 
-      {/* Tempo */}
-      <div style={{background:'#f7f7f5',borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:16}}>
-        <div style={lbl}>TEMPO</div>
-        <input type="range" min="30" max="180" step="1" value={bpm}
-          onChange={e=>setBpm(+e.target.value)}
-          style={{flex:1,accentColor:'#854F0B'}}/>
-        <span style={{fontSize:13,fontWeight:500,minWidth:60,color:'#1a1a1a'}}>{bpm} BPM</span>
-      </div>
+      {/* ── Main ── */}
+      <div style={{padding:'24px 32px', maxWidth:720, overflowY:'auto'}}>
 
-      {/* Transport */}
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',paddingBottom:14,marginBottom:14,borderBottom:'0.5px solid #e2e2e2'}}>
-        <button onClick={playing ? stop : start} style={{...btn(playing,'red'),padding:'8px 24px',fontSize:14,fontWeight:500}}>
-          {playing ? '■ Stop' : '▶ Play'}
-        </button>
-        <button onClick={toggleDrone} style={btn(droneOn,'teal')}>{droneOn?'◉':'○'} Shruti drone</button>
-        <button onClick={()=>setMetroOn(v=>!v)} style={btn(metroOn,'blue')}>{metroOn?'◉':'○'} Metronome</button>
-        <button onClick={()=>setSwaraOn(v=>!v)} style={btn(swaraOn,'amber')}>{swaraOn?'◉':'○'} Swara audio</button>
-      </div>
+        {/* Controls */}
+        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:14}}>
+          <div>
+            <div style={lbl}>TĀLAM</div>
+            <select style={sel} value={talaIdx}
+              onChange={e => { stop(); setTalaIdx(+e.target.value) }}>
+              {TAALAM.map((t, i) =>
+                <option key={i} value={i}>{t.name} — {t.struct} ({t.beats} beats)</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>KATTAI</div>
+            <select style={sel} value={kattaiIdx}
+              onChange={e => setKattaiIdx(+e.target.value)}>
+              {KATTAI.map((k, i) => <option key={i} value={i}>Kattai {k.l}</option>)}
+            </select>
+          </div>
+        </div>
 
-      {/* Sequence */}
-      <div>
-        <div style={{fontSize:11,color:'#999',letterSpacing:'0.05em',marginBottom:8}}>
+        {/* Tempo */}
+        <div style={{background:T.surface, borderRadius:8, padding:'10px 14px',
+          marginBottom:14, display:'flex', alignItems:'center', gap:14,
+          border:`0.5px solid ${T.border}`}}>
+          <span style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', whiteSpace:'nowrap'}}>
+            TEMPO
+          </span>
+          <input type="range" min="30" max="180" step="1" value={bpm}
+            onChange={e => setBpm(+e.target.value)}
+            style={{flex:1, accentColor:T.amber}} />
+          <span style={{fontSize:13, fontWeight:600, minWidth:55,
+            color:T.amber, textAlign:'right'}}>{bpm} BPM</span>
+        </div>
+
+        {/* Transport */}
+        <div style={{display:'flex', gap:7, flexWrap:'wrap', paddingBottom:16,
+          marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
+          <button onClick={playing ? stop : start}
+            style={{...btn(playing,'red'), padding:'7px 20px', fontSize:13, fontWeight:600}}>
+            {playing ? '■ Stop' : '▶ Play'}
+          </button>
+          <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
+            {droneOn ? '◉' : '○'} Shruti drone
+          </button>
+          <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
+            {metroOn ? '◉' : '○'} Metronome
+          </button>
+          <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
+            {swaraOn ? '◉' : '○'} Swara audio
+          </button>
+        </div>
+
+        {/* Sequence */}
+        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
           ↑ ĀROHANA — {tala.name} ({tala.struct})
         </div>
-        {rows.filter(r=>r.ascending).map((row,ri)=>(
-          <div key={ri} style={{display:'flex',alignItems:'center',marginBottom:5,flexWrap:'wrap'}}>
-            <span style={{fontSize:11,color:'#bbb',minWidth:22,marginRight:6,fontWeight:500}}>{row.baseLabel}</span>
-            {row.beats.map((b,bi)=>(
-              <span key={bi} style={chip(active?.row===ri && active?.beat===bi, b.angaStart, bi)}>
+        {rows.filter(r => r.ascending).map((row, ri) => (
+          <div key={ri} style={{display:'flex', alignItems:'center',
+            marginBottom:5, flexWrap:'wrap'}}>
+            <span style={{fontSize:10, color:T.dim, minWidth:20, marginRight:6}}>
+              {row.baseLabel}
+            </span>
+            {row.beats.map((b, bi) => (
+              <span key={bi} style={chip(active?.row === ri && active?.beat === bi, b.angaStart, bi)}>
                 {b.label}
               </span>
             ))}
           </div>
         ))}
 
-        <div style={{fontSize:11,color:'#999',letterSpacing:'0.05em',margin:'12px 0 8px'}}>
+        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
           ↓ AVAROHANA — {tala.name} ({tala.struct})
         </div>
-        {rows.filter(r=>!r.ascending).map((row,ri)=>{
-          const globalR = ascCount + ri
+        {rows.filter(r => !r.ascending).map((row, ri) => {
+          const gr = ascCount + ri
           return (
-            <div key={ri} style={{display:'flex',alignItems:'center',marginBottom:5,flexWrap:'wrap'}}>
-              <span style={{fontSize:11,color:'#bbb',minWidth:22,marginRight:6,fontWeight:500}}>{row.baseLabel}</span>
-              {row.beats.map((b,bi)=>(
-                <span key={bi} style={chip(active?.row===globalR && active?.beat===bi, b.angaStart, bi)}>
+            <div key={ri} style={{display:'flex', alignItems:'center',
+              marginBottom:5, flexWrap:'wrap'}}>
+              <span style={{fontSize:10, color:T.dim, minWidth:20, marginRight:6}}>
+                {row.baseLabel}
+              </span>
+              {row.beats.map((b, bi) => (
+                <span key={bi}
+                  style={chip(active?.row === gr && active?.beat === bi, b.angaStart, bi)}>
                   {b.label}
                 </span>
               ))}
             </div>
           )
         })}
-      </div>
 
-      <div style={{marginTop:14,fontSize:11,color:'#ccc'}}>
-        Phase 1 complete · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+        <div style={{marginTop:20, fontSize:10, color:T.dim}}>
+          Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+        </div>
       </div>
-
     </div>
   )
 }
