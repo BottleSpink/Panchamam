@@ -1098,7 +1098,7 @@ export default function App() {
             showAbout={() => { setDrawerOpen(false); setAboutOpen(true) }}
             startMetro={startMetro} stopMetro={stopMetro} playing={playing}
             mode={mode}
-          />
+          /> 
         )}
 
         {/* Header */}
