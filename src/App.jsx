@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { RAAGAM, JANYA_BY_MELA, swaraLabel } from './data/ragam'
 import { TAALAM } from './data/talam'
+import { inject } from '@vercel/analytics'
+inject()
 
 const KATTAI = [
   {l:"½",  w:"C",  f:130.81},
@@ -616,35 +618,40 @@ export default function App() {
       maxWidth: isMobile ? '100%' : 760}}>
 
       {/* Header */}
-      <div style={{display:'flex', alignItems:'center', gap:12,
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between',
         paddingBottom:16, marginBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
+
+        {/* ப + Panchamam — always left */}
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <div style={{
+            width:36, height:36, borderRadius:'50%', background:T.amberBg,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:19, color:T.amber, fontFamily:'"Noto Serif Tamil", serif', flexShrink:0,
+          }}>ப</div>
+          <div>
+            <div style={{fontSize: isMobile ? 18 : 22, color:T.amber, lineHeight:1,
+              fontFamily:'"Cormorant Garamond", Georgia, serif',
+              fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
+            <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
+              Alankāram
+            </div>
+          </div>
+        </div>
+
+        {/* ☰ Raga — mobile only, right side */}
         {isMobile && (
           <button onClick={() => setSidebarOpen(true)}
             style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
-              color:T.muted, fontSize:13, padding:'5px 10px', cursor:'pointer',
-              marginRight:4, display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
+              color:T.muted, fontSize:12, padding:'5px 10px', cursor:'pointer',
+              display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
             ☰
-            <span style={{color:T.amber, fontWeight:500, maxWidth:100,
+            <span style={{color:T.amber, fontWeight:500, maxWidth:90,
               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
               {raga.name}
             </span>
           </button>
         )}
-        <div style={{
-          width:36, height:36, borderRadius:'50%', background:T.amberBg,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:19, color:T.amber, fontFamily:'"Noto Serif Tamil", serif', flexShrink:0,
-        }}>ப</div>
-        <div>
-          <div style={{fontSize: isMobile ? 18 : 22, color:T.amber, lineHeight:1,
-            fontFamily:'"Cormorant Garamond", Georgia, serif',
-            fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
-          <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
-            Alankāram
-          </div>
-        </div>
       </div>
-
       {/* Kattai strip — mobile only */}
       {isMobile && <KattaiStrip kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />}
 
