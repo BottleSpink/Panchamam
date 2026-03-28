@@ -78,25 +78,36 @@ function buildRows(raga, tala, baseF) {
   const desc = [...asc].reverse()
   const rows = []
   const makeRow = (swaras, base) => {
-  let lastFreq = null
-  return {
-    beats: tala.pat.map(p => {
-      const sw = p.o !== null ? swaras[base + p.o] : null
-      if (sw) lastFreq = hz(baseF, sw.v)
-      return {
-        freq: sw ? hz(baseF, sw.v) : lastFreq,
-        label: sw ? sw.l : ',',
-        isHeld: p.o === null,
-        anga: p.a, angaStart: !!p.s
-      }
-    }),
-    baseLabel: swaras[base].l
+    let lastFreq = null
+    return {
+      beats: tala.pat.map(p => {
+        const sw = p.o !== null ? swaras[base + p.o] : null
+        if (sw) lastFreq = hz(baseF, sw.v)
+        return {
+          freq: sw ? hz(baseF, sw.v) : lastFreq,
+          label: sw ? sw.l : ',',
+          isHeld: p.o === null,
+          anga: p.a, angaStart: !!p.s
+        }
+      }),
+      baseLabel: swaras[base].l
+    }
   }
-}
   const n = asc.length
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(asc, r), ascending: true})
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(desc, r), ascending: false})
   return rows
+}
+
+// ── useIsMobile ────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
 }
 
 // ── Pendulum ───────────────────────────────────────────────────
@@ -159,9 +170,7 @@ function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
               }}>
               <div style={{fontSize:11, fontWeight:500, marginBottom: isSel ? 8 : 4,
                 color: isSel ? T.amber : T.text}}>{t.name}</div>
-              {!isSel && (
-                <div style={{fontSize:9, color:T.dim}}>{t.beats} beats</div>
-              )}
+              {!isSel && <div style={{fontSize:9, color:T.dim}}>{t.beats} beats</div>}
               {isSel && (
                 <>
                   <div style={{display:'flex', gap:5, alignItems:'center', marginBottom:6}}>
@@ -229,7 +238,7 @@ function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
   )
 }
 
-// ── Kattai Panel ───────────────────────────────────────────────
+// ── Kattai Panel — desktop vertical ───────────────────────────
 function KattaiPanel({ kattaiIdx, setKattaiIdx }) {
   return (
     <div style={{
@@ -250,6 +259,39 @@ function KattaiPanel({ kattaiIdx, setKattaiIdx }) {
             style={{
               fontFamily:'inherit', cursor:'pointer', width:52,
               padding:'5px 4px', borderRadius:5,
+              border:`0.5px solid ${isSel ? T.amber : T.border}`,
+              background: isSel ? T.amber : T.surface,
+              display:'flex', flexDirection:'column', alignItems:'center', gap:1,
+            }}>
+            <span style={{fontSize:11, fontWeight: isSel ? 700 : 400,
+              color: isSel ? '#0a0a0a' : T.text}}>{k.l}</span>
+            <span style={{fontSize:9, color: isSel ? '#3a2a00' : T.dim}}>{k.w}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Kattai Strip — mobile horizontal ──────────────────────────
+function KattaiStrip({ kattaiIdx, setKattaiIdx }) {
+  return (
+    <div style={{
+      borderBottom:`0.5px solid ${T.border}`,
+      background:T.sidebar,
+      padding:'8px 12px',
+      display:'flex', alignItems:'center', gap:6,
+      overflowX:'auto',
+    }}>
+      <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em',
+        whiteSpace:'nowrap', marginRight:4}}>KATTAI</div>
+      {KATTAI.map((k, i) => {
+        const isSel = i === kattaiIdx
+        return (
+          <button key={i} onClick={() => setKattaiIdx(i)}
+            style={{
+              fontFamily:'inherit', cursor:'pointer', flexShrink:0,
+              padding:'4px 8px', borderRadius:5,
               border:`0.5px solid ${isSel ? T.amber : T.border}`,
               background: isSel ? T.amber : T.surface,
               display:'flex', flexDirection:'column', alignItems:'center', gap:1,
@@ -413,11 +455,14 @@ export default function App() {
   const [metroOn, setMetroOn]     = useState(true)
   const [swaraOn, setSwaraOn]     = useState(true)
   const [active, setActive]       = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const isMobile = useIsMobile()
 
   const ctxRef   = useRef(null)
   const droneRef = useRef([])
   const timerRef = useRef(null)
-  const posRef   = useRef({row:0, beat:0})
+  const posRef   = useRef({row:0, swaraPos:0, talaPos:0})
   const stRef    = useRef({})
 
   const raga  = RAAGAM[ragaIdx]
@@ -465,13 +510,10 @@ export default function App() {
     const {row, swaraPos, talaPos} = posRef.current
     const dur = 60 / s.bpm
     const now = ctx.currentTime
-
-    // play kālam swaras within this akshara
     for (let k = 0; k < s.kalam; k++) {
       const sp = (swaraPos + k) % s.rows[row].beats.length
       const b = s.rows[row].beats[sp]
       if (s.swaraOn && !b.isHeld) {
-        // count how many held beats follow
         let holdCount = 1
         let next = (sp + 1) % s.rows[row].beats.length
         while (s.rows[row].beats[next]?.isHeld && holdCount < 8) {
@@ -483,42 +525,29 @@ export default function App() {
         playNote(ctx, b.freq, t, noteDur)
       }
     }
-
-    // metronome on akshara start
     const tb = s.rows[row].beats[talaPos]
     if (s.metroOn) playClick(ctx, now, tb.anga, tb.angaStart)
-
-    // highlight kālam swaras
     setActive({row, beatStart: swaraPos, count: s.kalam, talaPos})
-
-    // advance swara position by kālam
     let newSwaraPos = swaraPos + s.kalam
     let nr = row
-
-    // advance tala position by 1 always
     let newTalaPos = talaPos + 1
-
     if (newSwaraPos >= s.rows[row].beats.length) {
       newSwaraPos = newSwaraPos % s.rows[row].beats.length
       nr = (row + 1) % s.rows.length
     }
-    if (newTalaPos >= s.rows[row].beats.length) {
-      newTalaPos = 0
-    }
-
+    if (newTalaPos >= s.rows[row].beats.length) newTalaPos = 0
     posRef.current = {row: nr, swaraPos: newSwaraPos, talaPos: newTalaPos}
     timerRef.current = setTimeout(tick, dur * 1000)
   }
 
-
   function start() {
-  const ctx = getCtx() // create + resume inside the click handler
-  ctx.resume().then(() => {
-    posRef.current = {row:0, swaraPos:0, talaPos:0}
-    setActive(null)
-    setPlaying(true)
-  })
-}
+    const ctx = getCtx()
+    ctx.resume().then(() => {
+      posRef.current = {row:0, swaraPos:0, talaPos:0}
+      setActive(null)
+      setPlaying(true)
+    })
+  }
 
   useEffect(() => { if (playing) tick() }, [playing])
 
@@ -581,204 +610,230 @@ export default function App() {
     {label:'3×', val:4, sub:'4 notes/beat'},
   ]
 
+  // ── Shared main content ────────────────────────────────────
+  const mainContent = (
+    <div style={{padding: isMobile ? '16px' : '24px 28px', flex:1, overflowY:'auto',
+      maxWidth: isMobile ? '100%' : 760}}>
+
+      {/* Header */}
+      <div style={{display:'flex', alignItems:'center', gap:12,
+        paddingBottom:16, marginBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
+        {isMobile && (
+          <button onClick={() => setSidebarOpen(true)}
+            style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
+              color:T.muted, fontSize:16, padding:'4px 8px', cursor:'pointer', marginRight:4}}>
+            ☰
+          </button>
+        )}
+        <div style={{
+          width:36, height:36, borderRadius:'50%', background:T.amberBg,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:19, color:T.amber, fontFamily:'"Noto Serif Tamil", serif', flexShrink:0,
+        }}>ப</div>
+        <div>
+          <div style={{fontSize: isMobile ? 18 : 22, color:T.amber, lineHeight:1,
+            fontFamily:'"Cormorant Garamond", Georgia, serif',
+            fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
+          <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
+            Alankāram
+          </div>
+        </div>
+      </div>
+
+      {/* Kattai strip — mobile only */}
+      {isMobile && <KattaiStrip kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />}
+
+      <div style={{marginTop: isMobile ? 12 : 0}}>
+        <TalamCards
+          talaIdx={talaIdx} setTalaIdx={setTalaIdx}
+          activeBeat={active?.talaPos ?? null} onStop={stop}
+        />
+      </div>
+
+      {/* Tempo + Kālam */}
+      <div style={{display:'flex', alignItems:'center', gap: isMobile ? 10 : 20, marginBottom:16,
+        padding:'12px 16px', background:T.surface, borderRadius:8,
+        border:`0.5px solid ${T.border}`, flexWrap: isMobile ? 'wrap' : 'nowrap'}}>
+        <Pendulum playing={playing} bpm={bpm} />
+        <div style={{flex:1, minWidth:100, maxWidth:240}}>
+          <input type="range" min="30" max="180" step="1" value={bpm}
+            onChange={e => setBpm(+e.target.value)}
+            style={{width:'100%', accentColor:T.amber}} />
+        </div>
+        <div style={{display:'flex', flexDirection:'column', gap:4,
+          alignItems: isMobile ? 'flex-start' : 'flex-end'}}>
+          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
+          <div style={{display:'flex', gap:4}}>
+            {kalamOpts.map(k => (
+              <div key={k.val} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
+                <button onClick={() => setKalam(k.val)}
+                  style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
+                  {k.label}
+                </button>
+                <span style={{fontSize:8, color:T.dim, whiteSpace:'nowrap'}}>{k.sub}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Play + Transport */}
+      <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap',
+        paddingBottom:16, marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
+        <button onClick={playing ? stop : start}
+          style={{
+            fontFamily:'inherit', fontSize:15, fontWeight:700,
+            padding:'12px 36px', borderRadius:8, cursor:'pointer',
+            border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
+            background: playing ? T.redBg : T.amberBg,
+            color: playing ? T.red : T.amber,
+            letterSpacing:'0.05em',
+          }}>
+          {playing ? '■  Stop' : '▶  Play'}
+        </button>
+        <div style={{width:1, height:28, background:T.border, margin:'0 4px'}}/>
+        <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
+          {droneOn ? '◉' : '○'} Shruti drone
+        </button>
+        <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
+          {metroOn ? '◉' : '○'} Metronome
+        </button>
+        <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
+          {swaraOn ? '◉' : '○'} Swara audio
+        </button>
+      </div>
+
+      {/* Sequence */}
+      <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
+        ↑ ĀROHANA — {tala.name} ({tala.struct})
+      </div>
+      {rows.filter(r => r.ascending).map((row, ri) => {
+        const isActiveRow = active?.row === ri
+        return (
+          <div key={ri} style={{
+            display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
+            padding:'3px 4px', borderRadius:5,
+            background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
+            transition:'background 0.1s',
+          }}>
+            <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+              color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            {row.beats.map((b, bi) => {
+              const start = active?.beatStart ?? -1
+              const count = active?.count ?? 0
+              const rowLen = row.beats.length
+              const overflow = Math.max(0, start + count - rowLen)
+              const isActive = isActiveRow
+                ? (bi >= start && bi < start + count)
+                : (active?.row === ri - 1 && bi < overflow)
+              return (
+                <span key={bi} style={chip(ri, bi, isActive,
+                  isActiveRow || (active?.row === ri - 1 && bi < overflow))}>
+                  {b.label}
+                </span>
+              )
+            })}
+          </div>
+        )
+      })}
+
+      <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
+        ↓ AVAROHANA — {tala.name} ({tala.struct})
+      </div>
+      {rows.filter(r => !r.ascending).map((row, ri) => {
+        const gr = ascCount + ri
+        const isActiveRow = active?.row === gr
+        return (
+          <div key={ri} style={{
+            display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
+            padding:'3px 4px', borderRadius:5,
+            background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
+            transition:'background 0.1s',
+          }}>
+            <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+              color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            {row.beats.map((b, bi) => {
+              const start = active?.beatStart ?? -1
+              const count = active?.count ?? 0
+              const rowLen = row.beats.length
+              const overflow = Math.max(0, start + count - rowLen)
+              const isActive = isActiveRow
+                ? (bi >= start && bi < start + count)
+                : (active?.row === gr - 1 && bi < overflow)
+              return (
+                <span key={bi} style={chip(gr, bi, isActive,
+                  isActiveRow || (active?.row === gr - 1 && bi < overflow))}>
+                  {b.label}
+                </span>
+              )
+            })}
+          </div>
+        )
+      })}
+
+      <div style={{marginTop:20, fontSize:10, color:T.dim}}>
+        Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+      </div>
+    </div>
+  )
+
+  // ── Sidebar content (shared between drawer + desktop) ──────
+  const sidebarContent = (
+    <>
+      <div>
+        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
+        <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx); setSidebarOpen(false) }} />
+      </div>
+      <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
+        <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
+      </div>
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <div style={{minHeight:'100vh', background:T.bg, color:T.text,
+        fontFamily:'system-ui, sans-serif', fontSize:13}}>
+
+        {/* Mobile drawer overlay */}
+        {sidebarOpen && (
+          <div style={{position:'fixed', inset:0, zIndex:200, display:'flex'}}>
+            <div style={{width:280, background:T.sidebar, padding:'20px 16px',
+              overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+                paddingBottom:12, borderBottom:`0.5px solid ${T.border}`}}>
+                <div style={{fontSize:14, color:T.amber, fontWeight:500}}>Rāgam</div>
+                <button onClick={() => setSidebarOpen(false)}
+                  style={{background:'none', border:'none', color:T.muted,
+                    fontSize:20, cursor:'pointer', padding:'0 4px'}}>✕</button>
+              </div>
+              {sidebarContent}
+            </div>
+            {/* Tap outside to close */}
+            <div style={{flex:1, background:'rgba(0,0,0,0.5)'}}
+              onClick={() => setSidebarOpen(false)}/>
+          </div>
+        )}
+
+        {mainContent}
+      </div>
+    )
+  }
+
   return (
     <div style={{display:'grid', gridTemplateColumns:'240px 1fr', minHeight:'100vh',
       fontFamily:'system-ui, sans-serif', fontSize:13, background:T.bg, color:T.text}}>
 
-      {/* ── Left Sidebar ── */}
+      {/* ── Desktop Sidebar ── */}
       <div style={{borderRight:`0.5px solid ${T.border}`, padding:'20px 16px',
         background:T.sidebar, overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
-        <div style={{paddingBottom:12, borderBottom:`0.5px solid ${T.border}`}}>
-        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:4}}>
-
-
-        </div>
-      </div>
-        <div>
-          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
-          <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
-        </div>
-        <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
-          <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
-        </div>
+        {sidebarContent}
       </div>
 
       {/* ── Main + Kattai ── */}
       <div style={{display:'flex', overflowY:'auto'}}>
-
-        
-        {/* Content */}
-        <div style={{padding:'24px 28px', flex:1, maxWidth:760, overflowY:'auto'}}>
-
-          {/* Header */}
-          <div style={{
-            display:'flex', alignItems:'center', gap:12,
-            paddingBottom:20, marginBottom:8,
-            borderBottom:`0.5px solid ${T.border}`,
-          }}>
-            <div style={{
-              width:38, height:38, borderRadius:'50%',
-              background:T.amberBg,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:20, color:T.amber,
-              fontFamily:'"Noto Serif Tamil", serif',
-            }}>ப</div>
-            <div>
-              <div style={{
-                fontSize:22, color:T.amber, lineHeight:1,
-                fontFamily:'"Cormorant Garamond", Georgia, serif',
-                fontWeight:400, letterSpacing:'1px',
-              }}>Panchamam</div>
-              <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
-                Alankāram
-              </div>
-            </div>
-          </div>
-                
-
-          <TalamCards
-            talaIdx={talaIdx}
-            setTalaIdx={setTalaIdx}
-            activeBeat={active?.talaPos ?? null}
-            onStop={stop}
-          />
-
-          {/* Tempo + Pendulum + Kālam */}
-          <div style={{display:'flex', alignItems:'center', gap:20, marginBottom:16,
-            padding:'12px 16px', background:T.surface, borderRadius:8,
-            border:`0.5px solid ${T.border}`}}>
-            <Pendulum playing={playing} bpm={bpm} />
-            <div style={{flex:1, maxWidth:240}}>
-              <input type="range" min="30" max="180" step="1" value={bpm}
-                onChange={e => setBpm(+e.target.value)}
-                style={{width:'100%', accentColor:T.amber}} />
-            </div>
-            <div style={{display:'flex', flexDirection:'column', gap:4, alignItems:'flex-end'}}>
-              <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
-              <div style={{display:'flex', gap:4}}>
-                {kalamOpts.map(k => (
-                  <div key={k.val} style={{display:'flex', flexDirection:'column',
-                    alignItems:'center', gap:2}}>
-                    <button onClick={() => setKalam(k.val)}
-                      style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
-                      {k.label}
-                    </button>
-                    <span style={{fontSize:8, color:T.dim, whiteSpace:'nowrap'}}>{k.sub}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Play + Transport */}
-          <div style={{display:'flex', gap:8, alignItems:'center',
-            paddingBottom:16, marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
-            <button onClick={playing ? stop : start}
-              style={{
-                fontFamily:'inherit', fontSize:15, fontWeight:700,
-                padding:'12px 36px', borderRadius:8, cursor:'pointer',
-                border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
-                background: playing ? T.redBg : T.amberBg,
-                color: playing ? T.red : T.amber,
-                letterSpacing:'0.05em',
-              }}>
-              {playing ? '■  Stop' : '▶  Play'}
-            </button>
-            <div style={{width:1, height:28, background:T.border, margin:'0 4px'}}/>
-            <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
-              {droneOn ? '◉' : '○'} Shruti drone
-            </button>
-            <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
-              {metroOn ? '◉' : '○'} Metronome
-            </button>
-            <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
-              {swaraOn ? '◉' : '○'} Swara audio
-            </button>
-          </div>
-
-          {/* Sequence */}
-          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
-            ↑ ĀROHANA — {tala.name} ({tala.struct})
-          </div>
-          {rows.filter(r => r.ascending).map((row, ri) => {
-            const isActiveRow = active?.row === ri
-            return (
-              <div key={ri} style={{
-                display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
-                padding:'3px 4px', borderRadius:5,
-                background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
-                transition:'background 0.1s',
-              }}>
-                <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
-                  color: isActiveRow ? T.amber : T.dim}}>
-                  {row.baseLabel}
-                </span>
-                {row.beats.map((b, bi) => {
-                  const start = active?.beatStart ?? -1
-                  const count = active?.count ?? 0
-                  const rowLen = row.beats.length
-                  const overflow = Math.max(0, start + count - rowLen)
-
-                  const isActive = isActiveRow
-                    ? (bi >= start && bi < start + count)
-                    : (active?.row === ri - 1 && bi < overflow)
-
-                  return (
-                    <span key={bi} style={chip(ri, bi, isActive, isActiveRow || (active?.row === ri - 1 && bi < overflow))}>
-                      {b.label}
-                    </span>
-                  )
-                })}
-              </div>
-            )
-          })}
-
-          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
-            ↓ AVAROHANA — {tala.name} ({tala.struct})
-          </div>
-          {rows.filter(r => !r.ascending).map((row, ri) => {
-            const gr = ascCount + ri
-            const isActiveRow = active?.row === gr
-            return (
-              <div key={ri} style={{
-                display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
-                padding:'3px 4px', borderRadius:5,
-                background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
-                transition:'background 0.1s',
-              }}>
-                <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
-                  color: isActiveRow ? T.amber : T.dim}}>
-                  {row.baseLabel}
-                </span>
-                {row.beats.map((b, bi) => {
-                  const start = active?.beatStart ?? -1
-                  const count = active?.count ?? 0
-                  const rowLen = row.beats.length
-                  const overflow = Math.max(0, start + count - rowLen)
-
-                  const isActive = isActiveRow
-                    ? (bi >= start && bi < start + count)
-                    : (active?.row === gr - 1 && bi < overflow)
-
-                  return (
-                    <span key={bi} style={chip(gr, bi, isActive, isActiveRow || (active?.row === gr - 1 && bi < overflow))}>
-                      {b.label}
-                    </span>
-                  )
-                })}
-              </div>
-            )
-          })}
-
-          <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-            Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
-          </div>
-
-        </div>
-
-        {/* Kattai — right of content */}
+        {mainContent}
         <KattaiPanel kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />
-
       </div>
 
     </div>
