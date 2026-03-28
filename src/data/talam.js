@@ -5,7 +5,7 @@ export const TAALAM = [
     pat:[{o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0}]
   },
   {
-    name:"Rupaka", struct:"O I₄", beats:6,
+    name:"Rupaka", struct:"O2 I₄", beats:6,
     angas:[{type:'D', count:1},{type:'L', count:4}],
     pat:[
       {o:0,a:'D',s:1},{o:1,a:'D',s:0},
@@ -13,7 +13,7 @@ export const TAALAM = [
     ]
   },
   {
-    name:"Triputa", struct:"I₃ O O", beats:7,
+    name:"Triputa", struct:"I₃ O2 O2", beats:7,
     angas:[{type:'L', count:3},{type:'D', count:1},{type:'D', count:1}],
     pat:[
       {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},
@@ -22,7 +22,7 @@ export const TAALAM = [
     ]
   },
   {
-    name:"Matya", struct:"I₄ O I₄", beats:10,
+    name:"Matya", struct:"I₄ O2 I₄", beats:10,
     angas:[{type:'L', count:4},{type:'D', count:1},{type:'L', count:4}],
     pat:[
       {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:1,a:'L',s:0},
@@ -31,7 +31,7 @@ export const TAALAM = [
     ]
   },
   {
-    name:"Jhumpa", struct:"I₇ U O", beats:10,
+    name:"Jhumpa", struct:"I₇ U O2", beats:10,
     angas:[{type:'L', count:7},{type:'U', count:1},{type:'D', count:1}],
     pat:[
       {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},
@@ -41,7 +41,7 @@ export const TAALAM = [
     ]
   },
   {
-    name:"Dhruva", struct:"I₄ O I₄ I₄", beats:14,
+    name:"Dhruva", struct:"I₄ O2 I₄ I₄", beats:14,
     angas:[{type:'L', count:4},{type:'D', count:1},{type:'L', count:4},{type:'L', count:4}],
     pat:[
       {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:2,a:'L',s:0},{o:3,a:'L',s:0},
@@ -51,7 +51,7 @@ export const TAALAM = [
     ]
   },
   {
-    name:"Ata", struct:"I₅ I₅ O O", beats:14,
+    name:"Ata", struct:"I₅ I₅ O2 O2", beats:14,
     angas:[{type:'L', count:5},{type:'L', count:5},{type:'D', count:1},{type:'D', count:1}],
     pat:[
       {o:0,a:'L',s:1},{o:1,a:'L',s:0},{o:null,a:'L',s:0},{o:2,a:'L',s:0},{o:null,a:'L',s:0},

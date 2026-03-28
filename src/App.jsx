@@ -621,8 +621,13 @@ export default function App() {
         {isMobile && (
           <button onClick={() => setSidebarOpen(true)}
             style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
-              color:T.muted, fontSize:16, padding:'4px 8px', cursor:'pointer', marginRight:4}}>
+              color:T.muted, fontSize:13, padding:'5px 10px', cursor:'pointer',
+              marginRight:4, display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
             ☰
+            <span style={{color:T.amber, fontWeight:500, maxWidth:100,
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+              {raga.name}
+            </span>
           </button>
         )}
         <div style={{
