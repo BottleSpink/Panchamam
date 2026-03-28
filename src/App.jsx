@@ -3,35 +3,43 @@ import { RAAGAM, JANYA_BY_MELA, swaraLabel } from './data/ragam'
 import { TAALAM } from './data/talam'
 
 const KATTAI = [
-  {l:"½",f:130.81},{l:"1",f:138.59},{l:"1½",f:146.83},{l:"2",f:155.56},
-  {l:"2½",f:164.81},{l:"3",f:174.61},{l:"3½",f:185.00},{l:"4",f:196.00},
-  {l:"4½",f:207.65},{l:"5",f:220.00},{l:"5½",f:233.08},{l:"6",f:246.94}
+  {l:"½",  w:"C",  f:130.81},
+  {l:"1",  w:"C#", f:138.59},
+  {l:"1½", w:"D",  f:146.83},
+  {l:"2",  w:"D#", f:155.56},
+  {l:"2½", w:"E",  f:164.81},
+  {l:"3",  w:"F",  f:174.61},
+  {l:"3½", w:"F#", f:185.00},
+  {l:"4",  w:"G",  f:196.00},
+  {l:"4½", w:"G#", f:207.65},
+  {l:"5",  w:"A",  f:220.00},
+  {l:"5½", w:"A#", f:233.08},
+  {l:"6",  w:"B",  f:246.94}
 ]
 
-// ── Theme ──────────────────────────────────────────────────────
 const T = {
-  bg:       '#0a0a0a',
-  sidebar:  '#111111',
-  surface:  '#1a1a1a',
-  border:   '#2a2a2a',
-  text:     '#f0ebe0',
-  muted:    '#888',
-  dim:      '#444',
-  amber:    '#d4a843',
-  amberBg:  '#2a1f0a',
-  amberBdr: '#5a3a0a',
-  teal:     '#3eb489',
-  tealBg:   '#0a2018',
-  tealBdr:  '#1a5038',
-  blue:     '#5a9fd4',
-  blueBg:   '#0a1828',
-  blueBdr:  '#1a3858',
-  red:      '#e24b4a',
-  redBg:    '#280a0a',
-  redBdr:   '#5a1a1a',
+  bg:'#0a0a0a', sidebar:'#111111', surface:'#1a1a1a', border:'#2a2a2a',
+  text:'#f0ebe0', muted:'#888', dim:'#444',
+  amber:'#d4a843', amberBg:'#2a1f0a', amberBdr:'#5a3a0a',
+  teal:'#3eb489', tealBg:'#0a2018', tealBdr:'#1a5038',
+  blue:'#5a9fd4', blueBg:'#0a1828', blueBdr:'#1a3858',
+  red:'#e24b4a', redBg:'#280a0a', redBdr:'#5a1a1a',
 }
 
 function hz(base, semi) { return base * Math.pow(2, semi / 12) }
+
+function getAngaSegments(pat) {
+  const segments = []
+  let cur = null
+  pat.forEach((p, i) => {
+    if (p.s) {
+      if (cur) segments.push(cur)
+      cur = { type: p.a, startBeat: i, count: 1 }
+    } else if (cur) { cur.count++ }
+  })
+  if (cur) segments.push(cur)
+  return segments
+}
 
 function playSequence(notes, baseF, ctxRef) {
   const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
@@ -53,8 +61,7 @@ function playSequence(notes, baseF, ctxRef) {
 function playSingle(semi, baseF, ctxRef) {
   const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
   if (ctx.state === 'suspended') ctx.resume()
-  const dur = 0.6
-  const t = ctx.currentTime
+  const dur = 0.6, t = ctx.currentTime
   const o = ctx.createOscillator(), g = ctx.createGain()
   o.connect(g); g.connect(ctx.destination)
   o.type = 'sine'; o.frequency.value = hz(baseF, semi)
@@ -68,6 +75,7 @@ function playSingle(semi, baseF, ctxRef) {
 function buildRows(raga, tala, baseF) {
   const upper = {l:'Ṡ', v:12}
   const asc = [...raga.s, upper]
+  const desc = [...asc].reverse()
   const rows = []
   const makeRow = (swaras, base) => ({
     beats: tala.pat.map(p => {
@@ -77,10 +85,174 @@ function buildRows(raga, tala, baseF) {
     baseLabel: swaras[base].l
   })
   const n = asc.length
-  const desc = [...asc].reverse()
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(asc, r), ascending: true})
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(desc, r), ascending: false})
   return rows
+}
+
+// ── Pendulum ───────────────────────────────────────────────────
+function Pendulum({ playing, bpm }) {
+  const dur = playing ? 60 / bpm : 0.5
+  return (
+    <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4}}>
+      <div style={{position:'relative', width:40, height:52, display:'flex',
+        justifyContent:'center', alignItems:'flex-start'}}>
+        <div style={{
+          width:2, height:44, borderRadius:1,
+          background: playing ? T.amber : T.dim,
+          transformOrigin:'top center',
+          animation: playing ? `swing ${dur}s ease-in-out infinite alternate` : 'none',
+          transition:'background 0.2s',
+        }}>
+          <div style={{
+            position:'absolute', bottom:-3, left:'50%',
+            transform:'translateX(-50%)',
+            width:10, height:10, borderRadius:'50%',
+            background: playing ? T.amber : T.dim,
+          }}/>
+        </div>
+        <div style={{
+          position:'absolute', bottom:0, left:'50%',
+          transform:'translateX(-50%)',
+          width:14, height:6, borderRadius:3,
+          background:T.surface, border:`0.5px solid ${T.border}`,
+        }}/>
+      </div>
+      <style>{`@keyframes swing { from { transform: rotate(28deg); } to { transform: rotate(-28deg); } }`}</style>
+      <div style={{fontSize:11, fontWeight:600, color: playing ? T.amber : T.muted}}>{bpm}</div>
+      <div style={{fontSize:9, color:T.dim, letterSpacing:'0.05em'}}>BPM</div>
+    </div>
+  )
+}
+
+// ── Tālam Cards ────────────────────────────────────────────────
+function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
+  return (
+    <div style={{marginBottom:16}}>
+      <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>TĀLAM</div>
+      <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+        {TAALAM.map((t, i) => {
+          const isSel = i === talaIdx
+          let beatCursor = 0
+          const angasWithBeats = t.angas.map(seg => {
+            const start = beatCursor
+            const beats = seg.type === 'L' ? seg.count : seg.type === 'D' ? 2 : 1
+            beatCursor += beats
+            return { ...seg, startBeat: start, beats }
+          })
+          return (
+            <div key={i} onClick={() => { onStop(); setTalaIdx(i) }}
+              style={{
+                padding:'8px 10px', borderRadius:8, cursor:'pointer',
+                border:`0.5px solid ${isSel ? T.amber : T.border}`,
+                background: isSel ? T.amberBg : T.surface,
+                transition:'all 0.15s', minWidth: isSel ? 'auto' : 72,
+              }}>
+              <div style={{fontSize:11, fontWeight:500, marginBottom: isSel ? 8 : 4,
+                color: isSel ? T.amber : T.text}}>{t.name}</div>
+              {!isSel && (
+                <div style={{fontSize:9, color:T.dim}}>{t.beats} beats</div>
+              )}
+              {isSel && (
+                <>
+                  <div style={{display:'flex', gap:5, alignItems:'center', marginBottom:6}}>
+                    {angasWithBeats.map((seg, si) => {
+                      if (seg.type === 'D') {
+                        const isActive = activeBeat != null &&
+                          activeBeat >= seg.startBeat && activeBeat < seg.startBeat + seg.beats
+                        return (
+                          <div key={si} style={{
+                            width:24, height:28, borderRadius:4,
+                            border:`0.5px solid ${isActive ? T.amber : T.border}`,
+                            background: isActive ? T.amber : T.bg,
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:13, fontWeight:700,
+                            color: isActive ? '#0a0a0a' : T.muted,
+                            transition:'background 0.06s',
+                          }}>O</div>
+                        )
+                      }
+                      if (seg.type === 'U') {
+                        const isActive = activeBeat != null &&
+                          activeBeat >= seg.startBeat && activeBeat < seg.startBeat + seg.beats
+                        return (
+                          <div key={si} style={{
+                            width:24, height:28, borderRadius:4,
+                            border:`0.5px solid ${isActive ? T.amber : T.border}`,
+                            background: isActive ? T.amber : T.bg,
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontSize:13, fontWeight:700,
+                            color: isActive ? '#0a0a0a' : T.muted,
+                            transition:'background 0.06s',
+                          }}>U</div>
+                        )
+                      }
+                      return (
+                        <div key={si} style={{display:'flex', gap:2}}>
+                          {Array.from({length: seg.count}).map((_, ai) => {
+                            const beatIdx = seg.startBeat + ai
+                            const isActive = activeBeat === beatIdx
+                            return (
+                              <div key={ai} style={{
+                                width:18, height:28, borderRadius:4,
+                                border:`0.5px solid ${isActive ? T.amber : T.border}`,
+                                background: isActive ? T.amber : T.bg,
+                                display:'flex', alignItems:'center', justifyContent:'center',
+                                transition:'background 0.06s',
+                              }}>
+                                <div style={{width:1.5, height:14, borderRadius:1,
+                                  background: isActive ? '#0a0a0a' : T.dim}}/>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{fontSize:9, color:T.dim}}>{t.struct} · {t.beats} beats</div>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Kattai Panel ───────────────────────────────────────────────
+function KattaiPanel({ kattaiIdx, setKattaiIdx }) {
+  return (
+    <div style={{
+      borderLeft:`0.5px solid ${T.border}`,
+      background:T.sidebar,
+      padding:'16px 8px',
+      display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+      overflowY:'auto', minWidth:68,
+    }}>
+      <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em',
+        marginBottom:8, textAlign:'center', lineHeight:1.6}}>
+        KATTAI<br/>SHRUTI
+      </div>
+      {KATTAI.map((k, i) => {
+        const isSel = i === kattaiIdx
+        return (
+          <button key={i} onClick={() => setKattaiIdx(i)}
+            style={{
+              fontFamily:'inherit', cursor:'pointer', width:52,
+              padding:'5px 4px', borderRadius:5,
+              border:`0.5px solid ${isSel ? T.amber : T.border}`,
+              background: isSel ? T.amber : T.surface,
+              display:'flex', flexDirection:'column', alignItems:'center', gap:1,
+            }}>
+            <span style={{fontSize:11, fontWeight: isSel ? 700 : 400,
+              color: isSel ? '#0a0a0a' : T.text}}>{k.l}</span>
+            <span style={{fontSize:9, color: isSel ? '#3a2a00' : T.dim}}>{k.w}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Raga Search ────────────────────────────────────────────────
@@ -120,14 +292,14 @@ function RAAGAMearch({ value, onChange }) {
           boxShadow:'0 4px 16px rgba(0,0,0,0.5)'}}>
           {filtered.map((r, i) => {
             const idx = RAAGAM.indexOf(r)
-            const isSelected = idx === value
+            const isSel = idx === value
             return (
               <div key={i} onMouseDown={() => { onChange(idx); setOpen(false); setQuery('') }}
                 style={{padding:'8px 12px', cursor:'pointer', fontSize:13,
-                  background: isSelected ? T.amberBg : 'transparent',
+                  background: isSel ? T.amberBg : 'transparent',
                   borderBottom:`0.5px solid ${T.border}`}}>
-                <div style={{fontWeight: isSelected ? 500 : 400,
-                  color: isSelected ? T.amber : T.text}}>{r.name}</div>
+                <div style={{fontWeight: isSel ? 500 : 400,
+                  color: isSel ? T.amber : T.text}}>{r.name}</div>
                 <div style={{fontSize:11, color:T.muted, marginTop:1}}>
                   {r.type === 'melakartha'
                     ? `Melakartha · #${r.mela}`
@@ -148,36 +320,25 @@ function RagaPanel({ raga, baseF, ctxRef }) {
   const swCount = raga.s.length
   const swLabel = swaraLabel(swCount)
   const janyaList = raga.type === 'melakartha' ? (JANYA_BY_MELA[raga.mela] || []) : []
-
-  const upper = { l: 'Ṡ', v: 12 }
+  const upper = { l:'Ṡ', v:12 }
   const aroSwaras = [...raga.s, upper]
   const avoSwaras = [upper, ...[...raga.s].reverse()]
 
   const badge = (label, bg, color, border) => (
     <span style={{fontSize:11, padding:'2px 8px', borderRadius:5, fontWeight:500,
-      background:bg, color, border:`0.5px solid ${border}`}}>
-      {label}
-    </span>
+      background:bg, color, border:`0.5px solid ${border}`}}>{label}</span>
   )
-
   const playBtn = (swaras) => (
-    <button
-      onClick={() => playSequence(swaras.map(s => s.v), baseF, ctxRef)}
+    <button onClick={() => playSequence(swaras.map(s => s.v), baseF, ctxRef)}
       style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:4,
-        color:T.amber, fontSize:10, padding:'1px 7px', cursor:'pointer',
-        letterSpacing:'0.05em'}}>
-      ▶
-    </button>
+        color:T.amber, fontSize:10, padding:'1px 7px', cursor:'pointer'}}>▶</button>
   )
-
   const swaraChip = (sw, i) => (
-    <span key={i}
-      onClick={() => playSingle(sw.v, baseF, ctxRef)}
+    <span key={i} onClick={() => playSingle(sw.v, baseF, ctxRef)}
       style={{display:'inline-flex', alignItems:'center', justifyContent:'center',
         minWidth:28, padding:'2px 7px', borderRadius:5, fontSize:12, fontWeight:500,
         background:T.surface, border:`0.5px solid ${T.border}`,
-        color:T.text, margin:'0 2px 3px', cursor:'pointer',
-        transition:'background 0.1s'}}
+        color:T.text, margin:'0 2px 3px', cursor:'pointer', transition:'background 0.1s'}}
       onMouseEnter={e => e.currentTarget.style.background = T.amberBg}
       onMouseLeave={e => e.currentTarget.style.background = T.surface}>
       {sw.l}
@@ -186,49 +347,37 @@ function RagaPanel({ raga, baseF, ctxRef }) {
 
   return (
     <div style={{fontSize:13, color:T.text}}>
-      <div style={{fontWeight:500, fontSize:15, marginBottom:8, color:T.text}}>
-        {raga.name}
-      </div>
-
+      <div style={{fontWeight:500, fontSize:15, marginBottom:8}}>{raga.name}</div>
       <div style={{display:'flex', gap:5, marginBottom:14, flexWrap:'wrap'}}>
         {raga.type === 'melakartha'
           ? badge(`Melakartha · #${raga.mela}`, T.blueBg, T.blue, T.blueBdr)
           : badge(`Janya · ${raga.melaName} (${raga.mela})`, T.tealBg, T.teal, T.tealBdr)}
         {raga.vakra && badge('Vakra', T.amberBg, T.amber, T.amberBdr)}
       </div>
-
       <div style={{marginBottom:12}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:5}}>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>ĀROHANA</div>
           {playBtn(aroSwaras)}
         </div>
-        <div style={{display:'flex', flexWrap:'wrap'}}>
-          {aroSwaras.map((sw, i) => swaraChip(sw, i))}
-        </div>
+        <div style={{display:'flex', flexWrap:'wrap'}}>{aroSwaras.map(swaraChip)}</div>
       </div>
-
       <div style={{marginBottom:12}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:5}}>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>AVAROHANA</div>
           {playBtn(avoSwaras)}
         </div>
-        <div style={{display:'flex', flexWrap:'wrap'}}>
-          {avoSwaras.map((sw, i) => swaraChip(sw, i))}
-        </div>
+        <div style={{display:'flex', flexWrap:'wrap'}}>{avoSwaras.map(swaraChip)}</div>
       </div>
-
       <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:10, marginBottom:12}}>
         <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>SWARAS</div>
         <div style={{fontSize:12, color:T.dim}}>{swCount} notes · {swLabel}</div>
       </div>
-
       {raga.vakra && (
         <div style={{background:T.amberBg, borderRadius:6, padding:'8px 10px', marginBottom:12,
           fontSize:11, color:T.amber, border:`0.5px solid ${T.amberBdr}`}}>
           Avarohana differs — learn the correct descent from your teacher.
         </div>
       )}
-
       {janyaList.length > 0 && (
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:10}}>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:6}}>
@@ -247,8 +396,9 @@ function RagaPanel({ raga, baseF, ctxRef }) {
 export default function App() {
   const [ragaIdx, setRagaIdx]     = useState(14)
   const [talaIdx, setTalaIdx]     = useState(0)
-  const [kattaiIdx, setKattaiIdx] = useState(4)
+  const [kattaiIdx, setKattaiIdx] = useState(8)
   const [bpm, setBpm]             = useState(60)
+  const [kalam, setKalam]         = useState(1)
   const [playing, setPlaying]     = useState(false)
   const [droneOn, setDroneOn]     = useState(false)
   const [metroOn, setMetroOn]     = useState(true)
@@ -267,7 +417,7 @@ export default function App() {
   const rows  = useMemo(() => buildRows(raga, tala, baseF), [ragaIdx, talaIdx, kattaiIdx])
   const ascCount = rows.filter(r => r.ascending).length
 
-  useEffect(() => { stRef.current = {bpm, metroOn, swaraOn, rows, playing} })
+  useEffect(() => { stRef.current = {bpm, kalam, metroOn, swaraOn, rows, playing} })
 
   function getCtx() {
     if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -304,14 +454,23 @@ export default function App() {
     if (!s.playing) return
     const ctx = getCtx()
     const {row, beat} = posRef.current
-    const b = s.rows[row].beats[beat]
     const dur = 60 / s.bpm
     const now = ctx.currentTime
-    if (s.swaraOn) playNote(ctx, b.freq, now, dur)
+    for (let k = 0; k < s.kalam; k++) {
+      const nb = (beat + k) % s.rows[row].beats.length
+      const b = s.rows[row].beats[nb]
+      const t = now + (k * dur / s.kalam)
+      if (s.swaraOn) playNote(ctx, b.freq, t, dur / s.kalam)
+    }
+    const b = s.rows[row].beats[beat]
     if (s.metroOn) playClick(ctx, now, b.anga, b.angaStart)
-    setActive({row, beat})
-    let nr = row, nb = beat + 1
-    if (nb >= s.rows[row].beats.length) { nb = 0; nr = (row + 1) % s.rows.length }
+    setActive({row, beatStart: beat, count: s.kalam})
+    let nr = row
+    let nb = beat + s.kalam
+    if (nb >= s.rows[row].beats.length) {
+      nb = nb % s.rows[row].beats.length
+      nr = (row + 1) % s.rows.length
+    }
     posRef.current = {row: nr, beat: nb}
     timerRef.current = setTimeout(tick, dur * 1000)
   }
@@ -345,14 +504,14 @@ export default function App() {
     }
   }
 
-  const chip = (isActive, angaStart, beatIdx) => ({
+  const chip = (rowIdx, bi, isActive, isActiveRow) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center',
-    minWidth:28, padding:'3px 6px', borderRadius:5, fontSize:12,
-    border: isActive ? `0.5px solid ${T.amber}` : `0.5px solid ${T.border}`,
-    background: isActive ? T.amber : T.surface,
-    color: isActive ? '#0a0a0a' : T.text,
-    fontWeight: isActive ? 600 : 400,
-    marginLeft: (angaStart && beatIdx !== 0) ? 8 : 2,
+    minWidth:30, padding:'4px 7px', borderRadius:5, fontSize:12,
+    border: isActive ? `0.5px solid ${T.amber}` : `0.5px solid ${isActiveRow ? '#3a3a3a' : T.border}`,
+    background: isActive ? T.amber : isActiveRow ? '#1e1e1e' : T.surface,
+    color: isActive ? '#0a0a0a' : isActiveRow ? T.text : '#aaa',
+    fontWeight: isActive ? 700 : isActiveRow ? 500 : 400,
+    marginLeft: 2,
     transition: 'background 0.06s',
   })
 
@@ -371,24 +530,19 @@ export default function App() {
     }
   }
 
-  const sel = {
-    width:'100%', padding:'6px 8px',
-    border:`0.5px solid ${T.border}`, borderRadius:6,
-    fontSize:12, background:T.surface, color:T.text,
-  }
-
-  const lbl = {fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:4}
+  const kalamOpts = [
+    {label:'1×', val:1, sub:'1 note/beat'},
+    {label:'2×', val:2, sub:'2 notes/beat'},
+    {label:'3×', val:4, sub:'4 notes/beat'},
+  ]
 
   return (
     <div style={{display:'grid', gridTemplateColumns:'240px 1fr', minHeight:'100vh',
-      fontFamily:'system-ui, sans-serif', fontSize:13,
-      background:T.bg, color:T.text}}>
+      fontFamily:'system-ui, sans-serif', fontSize:13, background:T.bg, color:T.text}}>
 
-      {/* ── Sidebar ── */}
+      {/* ── Left Sidebar ── */}
       <div style={{borderRight:`0.5px solid ${T.border}`, padding:'20px 16px',
-        background:T.sidebar, overflowY:'auto',
-        display:'flex', flexDirection:'column', gap:20}}>
-
+        background:T.sidebar, overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
         <div style={{paddingBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:18, fontWeight:600, color:T.amber, letterSpacing:'-0.01em'}}>
             Panchamam
@@ -397,114 +551,154 @@ export default function App() {
             Sapta Tāla Alankāram · Phase 1
           </div>
         </div>
-
         <div>
-          <div style={lbl}>RĀGAM</div>
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
           <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
         </div>
-
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
           <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
         </div>
       </div>
 
-      {/* ── Main ── */}
-      <div style={{padding:'24px 32px', maxWidth:720, overflowY:'auto'}}>
+      {/* ── Main + Kattai ── */}
+      <div style={{display:'flex', overflowY:'auto'}}>
 
-        {/* Controls */}
-        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:14}}>
-          <div>
-            <div style={lbl}>TĀLAM</div>
-            <select style={sel} value={talaIdx}
-              onChange={e => { stop(); setTalaIdx(+e.target.value) }}>
-              {TAALAM.map((t, i) =>
-                <option key={i} value={i}>{t.name} — {t.struct} ({t.beats} beats)</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={lbl}>KATTAI</div>
-            <select style={sel} value={kattaiIdx}
-              onChange={e => setKattaiIdx(+e.target.value)}>
-              {KATTAI.map((k, i) => <option key={i} value={i}>Kattai {k.l}</option>)}
-            </select>
-          </div>
-        </div>
+        {/* Content */}
+        <div style={{padding:'24px 28px', flex:1, maxWidth:760, overflowY:'auto'}}>
 
-        {/* Tempo */}
-        <div style={{background:T.surface, borderRadius:8, padding:'10px 14px',
-          marginBottom:14, display:'flex', alignItems:'center', gap:14,
-          border:`0.5px solid ${T.border}`}}>
-          <span style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', whiteSpace:'nowrap'}}>
-            TEMPO
-          </span>
-          <input type="range" min="30" max="180" step="1" value={bpm}
-            onChange={e => setBpm(+e.target.value)}
-            style={{flex:1, accentColor:T.amber}} />
-          <span style={{fontSize:13, fontWeight:600, minWidth:55,
-            color:T.amber, textAlign:'right'}}>{bpm} BPM</span>
-        </div>
+          <TalamCards
+            talaIdx={talaIdx}
+            setTalaIdx={setTalaIdx}
+            activeBeat={active?.beatStart ?? null}
+            onStop={stop}
+          />
 
-        {/* Transport */}
-        <div style={{display:'flex', gap:7, flexWrap:'wrap', paddingBottom:16,
-          marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
-          <button onClick={playing ? stop : start}
-            style={{...btn(playing,'red'), padding:'7px 20px', fontSize:13, fontWeight:600}}>
-            {playing ? '■ Stop' : '▶ Play'}
-          </button>
-          <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
-            {droneOn ? '◉' : '○'} Shruti drone
-          </button>
-          <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
-            {metroOn ? '◉' : '○'} Metronome
-          </button>
-          <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
-            {swaraOn ? '◉' : '○'} Swara audio
-          </button>
-        </div>
-
-        {/* Sequence */}
-        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
-          ↑ ĀROHANA — {tala.name} ({tala.struct})
-        </div>
-        {rows.filter(r => r.ascending).map((row, ri) => (
-          <div key={ri} style={{display:'flex', alignItems:'center',
-            marginBottom:5, flexWrap:'wrap'}}>
-            <span style={{fontSize:10, color:T.dim, minWidth:20, marginRight:6}}>
-              {row.baseLabel}
-            </span>
-            {row.beats.map((b, bi) => (
-              <span key={bi} style={chip(active?.row === ri && active?.beat === bi, b.angaStart, bi)}>
-                {b.label}
-              </span>
-            ))}
-          </div>
-        ))}
-
-        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
-          ↓ AVAROHANA — {tala.name} ({tala.struct})
-        </div>
-        {rows.filter(r => !r.ascending).map((row, ri) => {
-          const gr = ascCount + ri
-          return (
-            <div key={ri} style={{display:'flex', alignItems:'center',
-              marginBottom:5, flexWrap:'wrap'}}>
-              <span style={{fontSize:10, color:T.dim, minWidth:20, marginRight:6}}>
-                {row.baseLabel}
-              </span>
-              {row.beats.map((b, bi) => (
-                <span key={bi}
-                  style={chip(active?.row === gr && active?.beat === bi, b.angaStart, bi)}>
-                  {b.label}
-                </span>
-              ))}
+          {/* Tempo + Pendulum + Kālam */}
+          <div style={{display:'flex', alignItems:'center', gap:20, marginBottom:16,
+            padding:'12px 16px', background:T.surface, borderRadius:8,
+            border:`0.5px solid ${T.border}`}}>
+            <Pendulum playing={playing} bpm={bpm} />
+            <div style={{flex:1, maxWidth:240}}>
+              <input type="range" min="30" max="180" step="1" value={bpm}
+                onChange={e => setBpm(+e.target.value)}
+                style={{width:'100%', accentColor:T.amber}} />
             </div>
-          )
-        })}
+            <div style={{display:'flex', flexDirection:'column', gap:4, alignItems:'flex-end'}}>
+              <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
+              <div style={{display:'flex', gap:4}}>
+                {kalamOpts.map(k => (
+                  <div key={k.val} style={{display:'flex', flexDirection:'column',
+                    alignItems:'center', gap:2}}>
+                    <button onClick={() => setKalam(k.val)}
+                      style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
+                      {k.label}
+                    </button>
+                    <span style={{fontSize:8, color:T.dim, whiteSpace:'nowrap'}}>{k.sub}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-          Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+          {/* Play + Transport */}
+          <div style={{display:'flex', gap:8, alignItems:'center',
+            paddingBottom:16, marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
+            <button onClick={playing ? stop : start}
+              style={{
+                fontFamily:'inherit', fontSize:15, fontWeight:700,
+                padding:'12px 36px', borderRadius:8, cursor:'pointer',
+                border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
+                background: playing ? T.redBg : T.amberBg,
+                color: playing ? T.red : T.amber,
+                letterSpacing:'0.05em',
+              }}>
+              {playing ? '■  Stop' : '▶  Play'}
+            </button>
+            <div style={{width:1, height:28, background:T.border, margin:'0 4px'}}/>
+            <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
+              {droneOn ? '◉' : '○'} Shruti drone
+            </button>
+            <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
+              {metroOn ? '◉' : '○'} Metronome
+            </button>
+            <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
+              {swaraOn ? '◉' : '○'} Swara audio
+            </button>
+          </div>
+
+          {/* Sequence */}
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
+            ↑ ĀROHANA — {tala.name} ({tala.struct})
+          </div>
+          {rows.filter(r => r.ascending).map((row, ri) => {
+            const isActiveRow = active?.row === ri
+            return (
+              <div key={ri} style={{
+                display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
+                padding:'3px 4px', borderRadius:5,
+                background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
+                transition:'background 0.1s',
+              }}>
+                <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+                  color: isActiveRow ? T.amber : T.dim}}>
+                  {row.baseLabel}
+                </span>
+                {row.beats.map((b, bi) => {
+                  const isActive = isActiveRow &&
+                    bi >= (active?.beatStart ?? -1) &&
+                    bi < (active?.beatStart ?? -1) + (active?.count ?? 0)
+                  return (
+                    <span key={bi} style={chip(ri, bi, isActive, isActiveRow)}>
+                      {b.label}
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })}
+
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
+            ↓ AVAROHANA — {tala.name} ({tala.struct})
+          </div>
+          {rows.filter(r => !r.ascending).map((row, ri) => {
+            const gr = ascCount + ri
+            const isActiveRow = active?.row === gr
+            return (
+              <div key={ri} style={{
+                display:'flex', alignItems:'center', marginBottom:4, flexWrap:'wrap',
+                padding:'3px 4px', borderRadius:5,
+                background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
+                transition:'background 0.1s',
+              }}>
+                <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+                  color: isActiveRow ? T.amber : T.dim}}>
+                  {row.baseLabel}
+                </span>
+                {row.beats.map((b, bi) => {
+                  const isActive = isActiveRow &&
+                    bi >= (active?.beatStart ?? -1) &&
+                    bi < (active?.beatStart ?? -1) + (active?.count ?? 0)
+                  return (
+                    <span key={bi} style={chip(gr, bi, isActive, isActiveRow)}>
+                      {b.label}
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })}
+
+          <div style={{marginTop:20, fontSize:10, color:T.dim}}>
+            Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+          </div>
+
         </div>
+
+        {/* Kattai — right of content */}
+        <KattaiPanel kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />
+
       </div>
+
     </div>
   )
 }
