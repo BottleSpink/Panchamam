@@ -453,34 +453,57 @@ export default function App() {
     const s = stRef.current
     if (!s.playing) return
     const ctx = getCtx()
-    const {row, beat} = posRef.current
+    const {row, swaraPos, talaPos} = posRef.current
     const dur = 60 / s.bpm
     const now = ctx.currentTime
+
+    // play kālam swaras within this akshara
     for (let k = 0; k < s.kalam; k++) {
-      const nb = (beat + k) % s.rows[row].beats.length
-      const b = s.rows[row].beats[nb]
+      const sp = (swaraPos + k) % s.rows[row].beats.length
+      const b = s.rows[row].beats[sp]
       const t = now + (k * dur / s.kalam)
       if (s.swaraOn) playNote(ctx, b.freq, t, dur / s.kalam)
     }
-    const b = s.rows[row].beats[beat]
-    if (s.metroOn) playClick(ctx, now, b.anga, b.angaStart)
-    setActive({row, beatStart: beat, count: s.kalam})
+
+    // metronome on akshara start
+    const tb = s.rows[row].beats[talaPos]
+    if (s.metroOn) playClick(ctx, now, tb.anga, tb.angaStart)
+
+    // highlight kālam swaras
+    setActive({row, beatStart: swaraPos, count: s.kalam, talaPos})
+
+    // advance swara position by kālam
+    let newSwaraPos = swaraPos + s.kalam
     let nr = row
-    let nb = beat + s.kalam
-    if (nb >= s.rows[row].beats.length) {
-      nb = nb % s.rows[row].beats.length
+
+    // advance tala position by 1 always
+    let newTalaPos = talaPos + 1
+
+    if (newSwaraPos >= s.rows[row].beats.length) {
+      newSwaraPos = newSwaraPos % s.rows[row].beats.length
       nr = (row + 1) % s.rows.length
     }
-    posRef.current = {row: nr, beat: nb}
+    if (newTalaPos >= s.rows[row].beats.length) {
+      newTalaPos = 0
+    }
+
+    posRef.current = {row: nr, swaraPos: newSwaraPos, talaPos: newTalaPos}
     timerRef.current = setTimeout(tick, dur * 1000)
   }
 
-  function start() { posRef.current = {row:0,beat:0}; setActive(null); setPlaying(true) }
+
+  function start() {
+    posRef.current = {row:0, swaraPos:0, talaPos:0}
+    setActive(null)
+    setPlaying(true)
+  }
+
   useEffect(() => { if (playing) tick() }, [playing])
 
   function stop() {
     setPlaying(false); clearTimeout(timerRef.current)
-    setActive(null); posRef.current = {row:0, beat:0}
+    setActive(null)
+    posRef.current = {row:0, swaraPos:0, talaPos:0}
   }
 
   useEffect(() => () => stop(), [])
@@ -569,7 +592,7 @@ export default function App() {
           <TalamCards
             talaIdx={talaIdx}
             setTalaIdx={setTalaIdx}
-            activeBeat={active?.beatStart ?? null}
+            activeBeat={active?.talaPos ?? null}
             onStop={stop}
           />
 
