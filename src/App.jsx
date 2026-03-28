@@ -485,8 +485,8 @@ export default function App() {
     o.connect(g); g.connect(ctx.destination)
     o.type = 'sine'; o.frequency.value = f
     g.gain.setValueAtTime(0, t)
-    g.gain.linearRampToValueAtTime(0.2, t + 0.015)
-    g.gain.setValueAtTime(0.2, t + dur * 0.6)
+    g.gain.linearRampToValueAtTime(0.6, t + 0.015)
+    g.gain.setValueAtTime(0.6, t + dur * 0.6)
     g.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95)
     o.start(t); o.stop(t + dur)
   }
