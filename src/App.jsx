@@ -406,7 +406,7 @@ function AboutModal({ onClose }) {
             <div style={{fontFamily:'"Cormorant Garamond", Georgia, serif',
               fontSize:22, color:T.amber, letterSpacing:'1px'}}>Panchamam</div>
             <div style={{fontSize:11, color:T.muted, marginTop:4,
-              fontFamily:'"Noto Serif Tamil", serif'}}>பஞ்சமம் — the note that never wavers</div>
+              fontFamily:'"Noto Serif Tamil", serif'}}>பஞ்சமம்</div>
           </div>
           <button onClick={onClose}
             style={{background:'none', border:'none', color:T.dim,
@@ -414,28 +414,44 @@ function AboutModal({ onClose }) {
         </div>
 
         <div style={{fontSize:13, lineHeight:1.8, color:T.text, marginBottom:20}}>
-          <p style={{marginBottom:12}}>
-            Panchamam is a practice companion. Not your trainer — a companion.
-          </p>
-          <p style={{marginBottom:12}}>
-            It's for anyone looking to practice Carnatic music at home. Beginners,
-            or mid-level learners who want to explore a raga, sing the alankāram, and just practice.
-          </p>
-          <p style={{marginBottom:0}}>
-            Built by a fellow Carnatic music learner. Built for herself originally,
-            then opened up to everyone.
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHAT IS PANCHAMAM?</div>
+          <p>
+            Panchamam is a companion in your Carnatic music journey. It is certainly not your trainer, but a practice guide.
           </p>
         </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHO IS IT FOR?</div>
+          <p style={{marginBottom:8}}>
+            Anyone looking to practice Carnatic music at home.
+          </p>
+          <p style={{marginBottom:8}}>
+            If you are a beginner, this app can help you get familiar with the sounds of different swarams, rāgams and tālams.
+          </p>
+          <p>
+            If you are a mid- or senior-level learner currently exploring new rāgams, this app will help you grasp them better with alankāram practice. 
+            </p>
+            <p>
+            And the best part is you can sing along!!
+          </p>
+        </div>
+        <div>
+          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHO BUILT THIS?</div>
+          <p>
+            A fellow Carnatic music learner. Built for herself originally, then opened it up to everyone. Happy learning!
+          </p>
+        </div>
+      </div>
 
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16, display:'flex',
           flexDirection:'column', gap:10}}>
           <a href="https://forms.gle" target="_blank" rel="noreferrer"
             style={{fontSize:12, color:T.teal, textDecoration:'none'}}>
-            💬 Feedback, corrections, requests — or just say hi
+            For any feedback, corrections, requests — or if you just want to say hi
           </a>
           <a href="https://buy.stripe.com" target="_blank" rel="noreferrer"
             style={{fontSize:12, color:T.amber, textDecoration:'none'}}>
-            ☕ If this helped your practice, you can support it here
+            If this helped your practice, you can support me here
           </a>
         </div>
 
