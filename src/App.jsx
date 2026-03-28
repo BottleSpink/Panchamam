@@ -537,8 +537,8 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:10}}>RĀGAM</div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-            <div style={{fontSize:15, fontWeight:500, color:T.text}}>{raga?.name}</div>
-            <button onClick={() => setSearchOpen(true)}
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>Tap 🔍 to change rāgam</div>
+          <button onClick={() => setSearchOpen(true)}
               style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
                 color:T.amber, fontSize:16, padding:'4px 8px', cursor:'pointer', lineHeight:1}}>🔍</button>
           </div>
