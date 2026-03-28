@@ -512,10 +512,13 @@ export default function App() {
 
 
   function start() {
+  const ctx = getCtx() // create + resume inside the click handler
+  ctx.resume().then(() => {
     posRef.current = {row:0, swaraPos:0, talaPos:0}
     setActive(null)
     setPlaying(true)
-  }
+  })
+}
 
   useEffect(() => { if (playing) tick() }, [playing])
 
@@ -585,14 +588,12 @@ export default function App() {
       {/* ── Left Sidebar ── */}
       <div style={{borderRight:`0.5px solid ${T.border}`, padding:'20px 16px',
         background:T.sidebar, overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
-        <div style={{paddingBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
-          <div style={{fontSize:18, fontWeight:600, color:T.amber, letterSpacing:'-0.01em'}}>
-            Panchamam
-          </div>
-          <div style={{fontSize:11, color:T.muted, marginTop:2}}>
-            Sapta Tāla Alankāram · Phase 1
-          </div>
+        <div style={{paddingBottom:12, borderBottom:`0.5px solid ${T.border}`}}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:4}}>
+
+
         </div>
+      </div>
         <div>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
           <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
@@ -605,8 +606,35 @@ export default function App() {
       {/* ── Main + Kattai ── */}
       <div style={{display:'flex', overflowY:'auto'}}>
 
+        
         {/* Content */}
         <div style={{padding:'24px 28px', flex:1, maxWidth:760, overflowY:'auto'}}>
+
+          {/* Header */}
+          <div style={{
+            display:'flex', alignItems:'center', gap:12,
+            paddingBottom:20, marginBottom:8,
+            borderBottom:`0.5px solid ${T.border}`,
+          }}>
+            <div style={{
+              width:38, height:38, borderRadius:'50%',
+              background:T.amberBg,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:20, color:T.amber,
+              fontFamily:'"Noto Serif Tamil", serif',
+            }}>ப</div>
+            <div>
+              <div style={{
+                fontSize:22, color:T.amber, lineHeight:1,
+                fontFamily:'"Cormorant Garamond", Georgia, serif',
+                fontWeight:400, letterSpacing:'1px',
+              }}>Panchamam</div>
+              <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
+                Alankāram
+              </div>
+            </div>
+          </div>
+                
 
           <TalamCards
             talaIdx={talaIdx}
