@@ -77,13 +77,22 @@ function buildRows(raga, tala, baseF) {
   const asc = [...raga.s, upper]
   const desc = [...asc].reverse()
   const rows = []
-  const makeRow = (swaras, base) => ({
+  const makeRow = (swaras, base) => {
+  let lastFreq = null
+  return {
     beats: tala.pat.map(p => {
       const sw = p.o !== null ? swaras[base + p.o] : null
-      return { freq: sw ? hz(baseF, sw.v) : null, label: sw ? sw.l : '·', anga: p.a, angaStart: !!p.s }
+      if (sw) lastFreq = hz(baseF, sw.v)
+      return {
+        freq: sw ? hz(baseF, sw.v) : lastFreq,
+        label: sw ? sw.l : ',',
+        isHeld: p.o === null,
+        anga: p.a, angaStart: !!p.s
+      }
     }),
     baseLabel: swaras[base].l
-  })
+  }
+}
   const n = asc.length
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(asc, r), ascending: true})
   for (let r = 0; r <= n - 4; r++) rows.push({...makeRow(desc, r), ascending: false})
@@ -461,8 +470,18 @@ export default function App() {
     for (let k = 0; k < s.kalam; k++) {
       const sp = (swaraPos + k) % s.rows[row].beats.length
       const b = s.rows[row].beats[sp]
-      const t = now + (k * dur / s.kalam)
-      if (s.swaraOn) playNote(ctx, b.freq, t, dur / s.kalam)
+      if (s.swaraOn && !b.isHeld) {
+        // count how many held beats follow
+        let holdCount = 1
+        let next = (sp + 1) % s.rows[row].beats.length
+        while (s.rows[row].beats[next]?.isHeld && holdCount < 8) {
+          holdCount++
+          next = (next + 1) % s.rows[row].beats.length
+        }
+        const noteDur = (dur / s.kalam) * holdCount
+        const t = now + (k * dur / s.kalam)
+        playNote(ctx, b.freq, t, noteDur)
+      }
     }
 
     // metronome on akshara start
