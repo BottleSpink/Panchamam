@@ -772,7 +772,7 @@ export default function App() {
       })}
 
       <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-        Phase 1 · Phase 2: mic + pitch detection · Phase 3: gamaka ear training
+        Phase 1 · Alankaram Practice Guide ·
       </div>
     </div>
   )
