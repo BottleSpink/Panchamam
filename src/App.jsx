@@ -642,7 +642,7 @@ export default function App() {
   const [kalam, setKalam]         = useState(1)
   const [playing, setPlaying]     = useState(false)
   const [droneOn, setDroneOn]     = useState(false)
-  const [metroOn, setMetroOn]     = useState(true)
+  const [metroOn, setMetroOn]     = useState(false)
   const [swaraOn, setSwaraOn]     = useState(true)
   const [active, setActive]       = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -750,6 +750,7 @@ export default function App() {
 
   function start() {
     stopMetro()
+    setMetroOn(true)
     const ctx = getCtx()
     ctx.resume().then(() => {
       posRef.current = {row:0, swaraPos:0, talaPos:0}
