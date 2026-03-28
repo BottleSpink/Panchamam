@@ -48,20 +48,33 @@ function buildVarisaiRows(raga, baseF, type, patternIdx) {
   const pattern = patterns[patternIdx] || patterns[0]
 
   let lastFreq = null
-  return pattern.rows.map(row => ({
-    beats: row.degrees.map((deg, bi) => {
+  return pattern.rows.map(row => {
+    let lastFreq = null
+    const beats = row.degrees.map((deg, bi) => {
       const sw = deg !== null ? swaras[deg] : null
       if (sw) lastFreq = hz(baseF, sw.v)
+
+      // Sphuritam: second note of a janta pair
+      // detect if previous degree is the same
+      const prevDeg = bi > 0 ? row.degrees[bi - 1] : null
+      const isSphuritam = type === 'janta' && deg !== null && deg === prevDeg
+
+      // Lower note = previous note in swaras array (or mandara Sa)
+      const lowerDeg = deg !== null && deg > 0 ? deg - 1 : null
+      const lowerSw = lowerDeg !== null ? swaras[lowerDeg] : null
+      const lowerF = lowerSw ? hz(baseF, lowerSw.v) : (deg === 0 ? hz(baseF, -1) : null)
+
       return {
         freq: sw ? hz(baseF, sw.v) : lastFreq,
         label: sw ? sw.l : ',',
         isHeld: deg === null,
+        sphuritam: isSphuritam,
+        lowerFreq: isSphuritam ? lowerF : null,
         ...ADI_BEATS[bi],
       }
-    }),
-    ascending: row.ascending,
-    baseLabel: null,
-  }))
+    })
+        return { beats, ascending: row.ascending, baseLabel: null }
+  })
 }
 
 function playSequence(notes, baseF, ctxRef) {
@@ -289,6 +302,11 @@ function VarisaiSelector({ varisaiType, setVarisaiType, varisaiPattern, setVaris
               {p.label}
             </div>
           ))}
+        </div>
+      )}
+      {!notSampurna && varisaiType === 'janta' && (
+        <div style={{padding:'0 16px 10px', fontSize:11, color:T.muted, fontStyle:'italic'}}>
+          ※ Second note of each pair is sung with stress (sphuritam) — approach from the note below.
         </div>
       )}
     </div>
@@ -838,11 +856,20 @@ export default function App() {
 
   function stopMetro() { clearTimeout(metroTimerRef.current) }
 
-  function playNote(ctx, f, t, dur) {
+  function playNote(ctx, f, t, dur, sphuritam = false, lowerF = null) {
     if (!f) return
     const o = ctx.createOscillator(), g = ctx.createGain()
     o.connect(g); g.connect(ctx.destination)
-    o.type = 'sine'; o.frequency.value = f
+    o.type = 'sine'
+
+    if (sphuritam && lowerF) {
+      // Start at lower note, quick flick up to target
+      o.frequency.setValueAtTime(lowerF, t)
+      o.frequency.linearRampToValueAtTime(f, t + 0.05)
+    } else {
+      o.frequency.value = f
+    }
+
     g.gain.setValueAtTime(0, t)
     g.gain.linearRampToValueAtTime(0.8, t + 0.015)
     g.gain.setValueAtTime(0.8, t + dur * 0.6)
@@ -881,7 +908,7 @@ export default function App() {
         }
         const noteDur = (dur / s.kalam) * holdCount
         const t = now + (k * dur / s.kalam)
-        playNote(ctx, b.freq, t, noteDur)
+        playNote(ctx, b.freq, t, noteDur, b.sphuritam, b.lowerFreq)
       }
     }
     const tb = s.rows[row].beats[talaPos]
