@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { RAAGAM, JANYA_BY_MELA, swaraLabel } from './data/ragam'
+import { SARALI, DATU, ADI_BEATS } from './data/varisai'
 import { TAALAM } from './data/talam'
 import { inject } from '@vercel/analytics'
 inject()
@@ -29,6 +30,39 @@ const T = {
 }
 
 function hz(base, semi) { return base * Math.pow(2, semi / 12) }
+
+// Adi talam: I₄ O₂ O₂ = 8 beats
+// beat positions: 0-3 = Laghu, 4-5 = Dhrutam, 6-7 = Dhrutam
+const ADI_ANGA = (bi) => ({
+  anga: bi < 4 ? 'L' : 'D',
+  angaStart: bi === 0 || bi === 4 || bi === 6,
+})
+
+function buildVarisaiRows(raga, baseF, type, patternIdx) {
+  // Varisai only works for sampurna ragas (7 swaras)
+  if (raga.s.length < 7) return []
+  const upper = { l:'Ṡ', v:12 }
+  const swaras = [...raga.s, upper] // indices 0-7
+
+  const patterns = type === 'sarali' ? SARALI : DATU
+  const pattern = patterns[patternIdx] || patterns[0]
+
+  let lastFreq = null
+  return pattern.rows.map(row => ({
+    beats: row.degrees.map((deg, bi) => {
+      const sw = deg !== null ? swaras[deg] : null
+      if (sw) lastFreq = hz(baseF, sw.v)
+      return {
+        freq: sw ? hz(baseF, sw.v) : lastFreq,
+        label: sw ? sw.l : ',',
+        isHeld: deg === null,
+        ...ADI_BEATS[bi],
+      }
+    }),
+    ascending: row.ascending,
+    baseLabel: null,
+  }))
+}
 
 function playSequence(notes, baseF, ctxRef) {
   const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
@@ -129,6 +163,134 @@ function Pendulum({ playing, bpm }) {
       <style>{`@keyframes swing { from { transform: rotate(28deg); } to { transform: rotate(-28deg); } }`}</style>
       <div style={{fontSize:11, fontWeight:600, color: playing ? T.amber : T.muted}}>{bpm}</div>
       <div style={{fontSize:9, color:T.dim, letterSpacing:'0.05em'}}>BPM</div>
+    </div>
+  )
+}
+
+// ── Mode Selector ──────────────────────────────────────────────
+function ModeSelector({ mode, setMode, onStop }) {
+  return (
+    <div style={{display:'flex', gap:6, padding:'10px 16px',
+      borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
+      {[{label:'Alankāram', val:'alankaram'}, {label:'Varisai', val:'varisai'}].map(m => (
+        <div key={m.val} onClick={() => { onStop(); setMode(m.val) }}
+          style={{
+            padding:'7px 18px', borderRadius:8, cursor:'pointer',
+            fontSize:12, fontWeight:500,
+            border:`0.5px solid ${mode===m.val ? T.amber : T.border}`,
+            background: mode===m.val ? T.amberBg : T.surface,
+            color: mode===m.val ? T.amber : T.muted,
+            transition:'all 0.15s',
+          }}>{m.label}</div>
+      ))}
+    </div>
+  )
+}
+
+// ── Adi Talam Display (fixed, for varisai) ─────────────────────
+function AdiTalamDisplay({ activeBeat }) {
+  // I₄ O₂ O₂ = 8 beats
+  const angas = [
+    { type:'L', count:4, startBeat:0 },
+    { type:'D', count:2, startBeat:4 },
+    { type:'D', count:2, startBeat:6 },
+  ]
+  return (
+    <div style={{padding:'10px 16px', borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
+      <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:7}}>
+        TĀLAM — Adi (I₄ O₂ O₂ · 8 beats)
+      </div>
+      <div style={{
+        display:'inline-flex', gap:5, alignItems:'center',
+        padding:'8px 10px', borderRadius:8,
+        border:`0.5px solid ${T.amber}`, background:T.amberBg,
+      }}>
+        {angas.map((seg, si) => {
+          if (seg.type === 'D') {
+            const isActive = activeBeat != null &&
+              activeBeat >= seg.startBeat && activeBeat < seg.startBeat + seg.count
+            return (
+              <div key={si} style={{
+                width:24, height:28, borderRadius:4,
+                border:`0.5px solid ${isActive ? T.amber : T.border}`,
+                background: isActive ? T.amber : T.bg,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:13, fontWeight:700,
+                color: isActive ? '#0a0a0a' : T.muted,
+                transition:'background 0.06s',
+              }}>O</div>
+            )
+          }
+          return (
+            <div key={si} style={{display:'flex', gap:2}}>
+              {Array.from({length: seg.count}).map((_, ai) => {
+                const beatIdx = seg.startBeat + ai
+                const isActive = activeBeat === beatIdx
+                return (
+                  <div key={ai} style={{
+                    width:18, height:28, borderRadius:4,
+                    border:`0.5px solid ${isActive ? T.amber : T.border}`,
+                    background: isActive ? T.amber : T.bg,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    transition:'background 0.06s',
+                  }}>
+                    <div style={{width:1.5, height:14, borderRadius:1,
+                      background: isActive ? '#0a0a0a' : T.dim}}/>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Varisai Type Selector ──────────────────────────────────────
+function VarisaiSelector({ varisaiType, setVarisaiType, varisaiPattern, setVarisaiPattern, onStop, raga }) {
+  const patterns = varisaiType === 'sarali' ? SARALI : DATU
+  const notSampurna = raga.s.length < 7
+
+  return (
+    <div style={{borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
+      {/* Type tabs */}
+      <div style={{display:'flex', gap:5, padding:'10px 16px 0'}}>
+        {[{label:'Sarali', val:'sarali'}, {label:'Datu', val:'datu'}].map(v => (
+          <div key={v.val} onClick={() => { onStop(); setVarisaiType(v.val); setVarisaiPattern(0) }}
+            style={{
+              padding:'6px 16px', borderRadius:'6px 6px 0 0', cursor:'pointer',
+              fontSize:12, fontWeight:500,
+              border:`0.5px solid ${varisaiType===v.val ? T.amber : T.border}`,
+              borderBottom: varisaiType===v.val ? `0.5px solid ${T.amberBg}` : `0.5px solid ${T.border}`,
+              background: varisaiType===v.val ? T.amberBg : T.surface,
+              color: varisaiType===v.val ? T.amber : T.muted,
+            }}>{v.label}</div>
+        ))}
+      </div>
+      {/* Pattern numbers */}
+      {notSampurna ? (
+        <div style={{padding:'8px 16px 10px', fontSize:11, color:T.dim}}>
+          Varisai available for sampurna ragas only (7 swaras)
+        </div>
+      ) : (
+        <div style={{display:'flex', flexWrap:'wrap', gap:4, padding:'8px 16px 10px'}}>
+          {patterns.map((p, i) => (
+            <div key={i} onClick={() => { onStop(); setVarisaiPattern(i) }}
+              style={{
+                padding:'4px 10px', borderRadius:5, cursor:'pointer',
+                fontSize:11, fontWeight:500,
+                border:`0.5px solid ${varisaiPattern===i ? T.amber : T.border}`,
+                background: varisaiPattern===i ? T.amberBg : T.surface,
+                color: varisaiPattern===i ? T.amber : T.muted,
+                transition:'all 0.1s',
+              }}
+              title={p.desc}>
+              {p.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -265,33 +427,33 @@ function KattaiPanel({ kattaiIdx, setKattaiIdx }) {
 }
 
 // ── Raga Search ────────────────────────────────────────────────
-function RAAGAMearch({ value, onChange }) {
+function RAAGAMearch({ value, onChange, filter }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return RAAGAM.filter(r => r.name.toLowerCase().includes(q))
-  }, [query])
+    const list = filter ? RAAGAM.filter(filter) : RAAGAM
+    return list.filter(r => r.name.toLowerCase().includes(q))
+  }, [query, filter])
   useEffect(() => {
     const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-  const selected = RAAGAM[value]
   return (
     <div ref={ref} style={{position:'relative'}}>
-    <div style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
-      fontSize:14, color:T.muted, pointerEvents:'none'}}>🔍</div>
-    <input
-      value={open ? query : ''}
-      onChange={e => { setQuery(e.target.value); setOpen(true) }}
-      onFocus={() => { setQuery(''); setOpen(true) }}
-      placeholder="Search rāgam..."
-      style={{width:'100%', padding:'8px 10px 8px 32px',
-        border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
-        background:T.surface, color:T.text, boxSizing:'border-box'}}
-    />
+      <div style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+        fontSize:14, color:T.muted, pointerEvents:'none'}}>🔍</div>
+      <input
+        value={open ? query : ''}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        placeholder="Search rāgam..."
+        style={{width:'100%', padding:'8px 10px 8px 32px',
+          border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
+          background:T.surface, color:T.text, boxSizing:'border-box'}}
+      />
       {open && filtered.length > 0 && (
         <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:100,
           background:T.surface, border:`0.5px solid ${T.border}`, borderRadius:6,
@@ -400,6 +562,7 @@ function AboutModal({ onClose }) {
         style={{
           background:T.sidebar, border:`0.5px solid ${T.border}`, borderRadius:12,
           padding:'32px', maxWidth:420, width:'90%', color:T.text,
+          maxHeight:'90vh', overflowY:'auto',
         }}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24}}>
           <div>
@@ -412,10 +575,7 @@ function AboutModal({ onClose }) {
             style={{background:'none', border:'none', color:T.dim,
               fontSize:20, cursor:'pointer', padding:'0 4px', lineHeight:1}}>✕</button>
         </div>
-
-        <div style={{fontSize:13, lineHeight:1.8, color:T.text, marginBottom:20}}>
         <div style={{display:'flex', flexDirection:'column', gap:12, marginBottom:20}}>
-
           {[
             {
               q: 'What is Panchamam?',
@@ -446,11 +606,7 @@ function AboutModal({ onClose }) {
               <div style={{fontSize:13, color:T.text, lineHeight:1.7}}>{a}</div>
             </div>
           ))}
-
         </div>
-        
-      </div>
-
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16, display:'flex',
           flexDirection:'column', gap:10}}>
           <a href="https://forms.gle/cVYK8dv6tx3ESsLZ9" target="_blank" rel="noreferrer"
@@ -462,7 +618,6 @@ function AboutModal({ onClose }) {
             If this helped your practice, you can support me here
           </a>
         </div>
-
         <div style={{marginTop:16, fontSize:10, color:T.dim}}>
           Phase 1 · Alankāram Practice · panchamam.app
         </div>
@@ -474,17 +629,19 @@ function AboutModal({ onClose }) {
 // ── Mobile Drawer ──────────────────────────────────────────────
 function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattaiIdx,
   metroOn, setMetroOn, droneOn, toggleDrone, swaraOn, setSwaraOn,
-  baseF, ctxRef, stop, showAbout }) {
+  baseF, ctxRef, stop, showAbout, startMetro, stopMetro, playing, mode }) {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return RAAGAM.filter(r => r.name.toLowerCase().includes(q))
-  }, [query])
+    const list = mode === 'varisai'
+      ? RAAGAM.filter(r => r.s.length === 7)
+      : RAAGAM
+    return list.filter(r => r.name.toLowerCase().includes(q))
+  }, [query, mode])
 
-  // Full screen search overlay
   if (searchOpen) {
     return (
       <div style={{position:'fixed', inset:0, zIndex:300, background:T.bg,
@@ -531,8 +688,6 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
     <div style={{position:'fixed', inset:0, zIndex:200, display:'flex'}}>
       <div style={{width:300, background:T.sidebar, display:'flex',
         flexDirection:'column', overflowY:'auto'}}>
-
-        {/* Drawer header */}
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center',
           padding:'18px 16px 14px', borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
           <div style={{fontSize:11, color:T.muted, letterSpacing:'0.1em'}}>SETTINGS</div>
@@ -540,8 +695,6 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
             style={{background:'none', border:'none', color:T.dim,
               fontSize:20, cursor:'pointer'}}>✕</button>
         </div>
-
-        {/* Rāgam section */}
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:10}}>RĀGAM</div>
           <div style={{position:'relative', marginBottom:10}}>
@@ -558,8 +711,6 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
           </div>
           <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
         </div>
-
-        {/* Kattai section */}
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>KATTAI / SHRUTI</div>
           <div style={{display:'flex', flexWrap:'wrap', gap:4}}>
@@ -581,8 +732,6 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
             })}
           </div>
         </div>
-
-        {/* Audio toggles */}
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:12}}>AUDIO</div>
           {[
@@ -615,8 +764,6 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
             </div>
           ))}
         </div>
-
-        {/* About */}
         <div style={{padding:'14px 16px'}}>
           <button onClick={showAbout}
             style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
@@ -625,9 +772,7 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
             About Panchamam
           </button>
         </div>
-
       </div>
-      {/* Tap outside to close */}
       <div style={{flex:1, background:'rgba(0,0,0,0.5)'}} onClick={onClose}/>
     </div>
   )
@@ -635,36 +780,44 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
 
 // ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const [ragaIdx, setRagaIdx]     = useState(14)
-  const [talaIdx, setTalaIdx]     = useState(0)
-  const [kattaiIdx, setKattaiIdx] = useState(8)
-  const [bpm, setBpm]             = useState(60)
-  const [kalam, setKalam]         = useState(1)
-  const [playing, setPlaying]     = useState(false)
-  const [droneOn, setDroneOn]     = useState(false)
-  const [metroOn, setMetroOn]     = useState(false)
-  const [swaraOn, setSwaraOn]     = useState(true)
-  const [active, setActive]       = useState(null)
+  const [ragaIdx, setRagaIdx]       = useState(14)
+  const [talaIdx, setTalaIdx]       = useState(0)
+  const [kattaiIdx, setKattaiIdx]   = useState(8)
+  const [bpm, setBpm]               = useState(60)
+  const [kalam, setKalam]           = useState(1)
+  const [playing, setPlaying]       = useState(false)
+  const [droneOn, setDroneOn]       = useState(false)
+  const [metroOn, setMetroOn]       = useState(false)
+  const [swaraOn, setSwaraOn]       = useState(true)
+  const [active, setActive]         = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [aboutOpen, setAboutOpen]   = useState(false)
+  const [mode, setMode]             = useState('alankaram')
+  const [varisaiType, setVarisaiType] = useState('sarali')
+  const [varisaiPattern, setVarisaiPattern] = useState(0)
 
   const isMobile = useIsMobile()
 
-  const ctxRef   = useRef(null)
-  const droneRef = useRef([])
-  const timerRef = useRef(null)
-  const posRef   = useRef({row:0, swaraPos:0, talaPos:0})
-  const stRef    = useRef({})
+  const ctxRef        = useRef(null)
+  const droneRef      = useRef([])
+  const timerRef      = useRef(null)
+  const posRef        = useRef({row:0, swaraPos:0, talaPos:0})
+  const stRef         = useRef({})
   const metroTimerRef = useRef(null)
 
+  const raga   = RAAGAM[ragaIdx]
+  const tala   = TAALAM[talaIdx]
+  const baseF  = KATTAI[kattaiIdx].f
 
-  const raga  = RAAGAM[ragaIdx]
-  const tala  = TAALAM[talaIdx]
-  const baseF = KATTAI[kattaiIdx].f
-  const rows  = useMemo(() => buildRows(raga, tala, baseF), [ragaIdx, talaIdx, kattaiIdx])
-  const ascCount = rows.filter(r => r.ascending).length
+  const rows        = useMemo(() => buildRows(raga, tala, baseF), [ragaIdx, talaIdx, kattaiIdx])
+  const varisaiRows = useMemo(
+    () => buildVarisaiRows(raga, baseF, varisaiType, varisaiPattern),
+    [ragaIdx, kattaiIdx, varisaiType, varisaiPattern]
+  )
+  const activeRows  = mode === 'alankaram' ? rows : varisaiRows
+  const ascCount    = activeRows.filter(r => r.ascending).length
 
-  useEffect(() => { stRef.current = {bpm, kalam, metroOn, swaraOn, rows, playing} })
+  useEffect(() => { stRef.current = {bpm, kalam, metroOn, swaraOn, rows: activeRows, playing} })
 
   function getCtx() {
     if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
@@ -683,9 +836,7 @@ export default function App() {
     tick()
   }
 
-  function stopMetro() {
-    clearTimeout(metroTimerRef.current)
-  }
+  function stopMetro() { clearTimeout(metroTimerRef.current) }
 
   function playNote(ctx, f, t, dur) {
     if (!f) return
@@ -770,7 +921,6 @@ export default function App() {
 
   useEffect(() => () => stop(), [])
 
-
   useEffect(() => {
     if (droneOn) {
       droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
@@ -799,55 +949,32 @@ export default function App() {
   }, [baseF])
 
   function toggleDrone() {
-    console.log('toggleDrone called, droneOn:', droneOn, 'baseF:', baseF)
     if (droneOn) {
-        droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
-        droneRef.current = []
-        setDroneOn(false)
-      } else {
-        if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
-        const ctx = ctxRef.current
-        ctx.resume().then(() => {
-          const master = ctx.createGain()
-          master.gain.value = 0.07
-          master.connect(ctx.destination)
-
-          // Tanpura strings: lower Sa, Pa, upper Sa, upper Sa (slight detune)
-          const strings = [
-            [baseF / 2, 0.6],           // lower Sa (mandara Sa)
-            [hz(baseF, 7), 0.5],        // Pa
-            [baseF, 0.7],               // Sa
-            [baseF * 1.003, 0.4],       // Sa slightly detuned (chorus effect)
-            [baseF * 2, 0.3],           // upper Sa
-          ]
-
-          strings.forEach(([freq, gain]) => {
-            const o = ctx.createOscillator()
-            const gn = ctx.createGain()
+      droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
+      droneRef.current = []
+      setDroneOn(false)
+    } else {
+      if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      const ctx = ctxRef.current
+      ctx.resume().then(() => {
+        const master = ctx.createGain()
+        master.gain.value = 0.07
+        master.connect(ctx.destination);
+        [[baseF/2, 0.6], [hz(baseF,7), 0.5], [baseF, 0.7], [baseF*1.003, 0.4], [baseF*2, 0.3]]
+          .forEach(([freq, gain]) => {
+            const o = ctx.createOscillator(), gn = ctx.createGain()
             const filter = ctx.createBiquadFilter()
-
-            o.type = 'sawtooth'  // richer harmonics than sine
-            o.frequency.value = freq
-
-            filter.type = 'lowpass'
-            filter.frequency.value = freq * 4  // roll off harsh highs
-            filter.Q.value = 0.5
-
+            o.type = 'sawtooth'; o.frequency.value = freq
+            filter.type = 'lowpass'; filter.frequency.value = freq * 4; filter.Q.value = 0.5
             gn.gain.value = gain
-
-            o.connect(filter)
-            filter.connect(gn)
-            gn.connect(master)
-            o.start()
-
-            droneRef.current.push(o)
-            droneRef.current.push(gn)
+            o.connect(filter); filter.connect(gn); gn.connect(master); o.start()
+            droneRef.current.push(o); droneRef.current.push(gn)
           })
-          droneRef.current.push(master)
-          setDroneOn(true)
-        })
-      }
+        droneRef.current.push(master)
+        setDroneOn(true)
+      })
     }
+  }
 
   const chip = (rowIdx, bi, isActive, isActiveRow) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center',
@@ -874,17 +1001,17 @@ export default function App() {
     }
   }
 
-  const kalamOpts = [
-    {label:'1×', val:1}, {label:'2×', val:2}, {label:'3×', val:4},
-  ]
+  const kalamOpts = [{label:'1×', val:1}, {label:'2×', val:2}, {label:'3×', val:4}]
 
-  // ── Sequence rows (shared) ─────────────────────────────────
+  // ── Sequence rows ──────────────────────────────────────────
+  const talaLabel = mode === 'varisai' ? 'Adi (I₄ O₂ O₂)' : `${tala.name} (${tala.struct})`
+
   const sequenceRows = (
     <>
       <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
-        ↑ ĀROHANA — {tala.name} ({tala.struct})
+        ↑ ĀROHANA — {talaLabel}
       </div>
-      {rows.filter(r => r.ascending).map((row, ri) => {
+      {activeRows.filter(r => r.ascending).map((row, ri) => {
         const isActiveRow = active?.row === ri
         return (
           <div key={ri} style={{
@@ -893,8 +1020,10 @@ export default function App() {
             background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
             transition:'background 0.1s',
           }}>
-            <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
-              color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            {row.baseLabel && (
+              <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+                color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            )}
             {row.beats.map((b, bi) => {
               const start = active?.beatStart ?? -1
               const count = active?.count ?? 0
@@ -913,9 +1042,9 @@ export default function App() {
         )
       })}
       <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
-        ↓ AVAROHANA — {tala.name} ({tala.struct})
+        ↓ AVAROHANA — {talaLabel}
       </div>
-      {rows.filter(r => !r.ascending).map((row, ri) => {
+      {activeRows.filter(r => !r.ascending).map((row, ri) => {
         const gr = ascCount + ri
         const isActiveRow = active?.row === gr
         return (
@@ -925,8 +1054,10 @@ export default function App() {
             background: isActiveRow ? 'rgba(212,168,67,0.05)' : 'transparent',
             transition:'background 0.1s',
           }}>
-            <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
-              color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            {row.baseLabel && (
+              <span style={{fontSize:11, fontWeight:500, minWidth:22, marginRight:6,
+                color: isActiveRow ? T.amber : T.dim}}>{row.baseLabel}</span>
+            )}
             {row.beats.map((b, bi) => {
               const start = active?.beatStart ?? -1
               const count = active?.count ?? 0
@@ -965,6 +1096,7 @@ export default function App() {
             swaraOn={swaraOn} setSwaraOn={setSwaraOn}
             baseF={baseF} ctxRef={ctxRef} stop={stop}
             showAbout={() => { setDrawerOpen(false); setAboutOpen(true) }}
+            startMetro={startMetro} stopMetro={stopMetro} playing={playing}
           />
         )}
 
@@ -982,7 +1114,7 @@ export default function App() {
                 fontFamily:'"Cormorant Garamond", Georgia, serif',
                 fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
               <div style={{fontSize:10, color:T.muted, marginTop:2, letterSpacing:'0.05em'}}>
-                Alankāram
+                {mode === 'alankaram' ? 'Alankāram' : 'Varisai'}
               </div>
             </div>
           </div>
@@ -998,17 +1130,29 @@ export default function App() {
           </button>
         </div>
 
-        {/* Talam — horizontal scroll */}
-        <div style={{padding:'10px 16px', borderBottom:`0.5px solid ${T.border}`}}>
-          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:7}}>TĀLAM</div>
-          <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
-            activeBeat={active?.talaPos ?? null} onStop={stop} mobile={true} />
-        </div>
+        {/* Mode selector */}
+        <ModeSelector mode={mode} setMode={setMode} onStop={stop} />
+
+        {/* Varisai type or Talam */}
+        {mode === 'varisai' ? (
+          <>
+            <VarisaiSelector
+              varisaiType={varisaiType} setVarisaiType={setVarisaiType}
+              varisaiPattern={varisaiPattern} setVarisaiPattern={setVarisaiPattern}
+              onStop={stop} raga={raga}
+            />
+            <AdiTalamDisplay activeBeat={active?.talaPos ?? null} />
+          </>
+        ) : (
+          <div style={{padding:'10px 16px', borderBottom:`0.5px solid ${T.border}`}}>
+            <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:7}}>TĀLAM</div>
+            <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
+              activeBeat={active?.talaPos ?? null} onStop={stop} mobile={true} />
+          </div>
+        )}
 
         {/* Main scrollable content */}
         <div style={{padding:'14px 16px', paddingBottom:80, overflowY:'auto'}}>
-
-          {/* BPM */}
           <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16,
             background:T.surface, borderRadius:8, padding:'10px 12px',
             border:`0.5px solid ${T.border}`}}>
@@ -1021,7 +1165,7 @@ export default function App() {
           {sequenceRows}
 
           <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-            Phase 1 · Alankāram Practice ·{' '}
+            Phase 1 · {mode === 'alankaram' ? 'Alankāram' : 'Varisai'} Practice ·{' '}
             <span style={{cursor:'pointer', color:T.muted, textDecoration:'underline'}}
               onClick={() => setAboutOpen(true)}>About</span>
           </div>
@@ -1072,7 +1216,11 @@ export default function App() {
         background:T.sidebar, overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
         <div>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
-          <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
+          <RAAGAMearch
+            value={ragaIdx}
+            onChange={idx => { stop(); setRagaIdx(idx) }}
+            filter={mode === 'varisai' ? (r => r.s.length === 7) : null}
+          />
         </div>
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
           <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
@@ -1097,7 +1245,7 @@ export default function App() {
                   fontFamily:'"Cormorant Garamond", Georgia, serif',
                   fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
                 <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
-                  Alankāram
+                  {mode === 'alankaram' ? 'Alankāram' : 'Varisai'}
                 </div>
               </div>
             </div>
@@ -1109,8 +1257,28 @@ export default function App() {
             </button>
           </div>
 
-          <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
-            activeBeat={active?.talaPos ?? null} onStop={stop} mobile={false} />
+          {/* Mode selector */}
+          <div style={{marginBottom:16}}>
+            <ModeSelector mode={mode} setMode={m => { stop(); setMode(m) }} onStop={stop} />
+          </div>
+
+          {/* Varisai type or Talam */}
+          {mode === 'varisai' ? (
+            <div style={{marginBottom:16}}>
+              <VarisaiSelector
+                varisaiType={varisaiType} setVarisaiType={setVarisaiType}
+                varisaiPattern={varisaiPattern} setVarisaiPattern={setVarisaiPattern}
+                onStop={stop} raga={raga}
+              />
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>TĀLAM</div>
+                <AdiTalamDisplay activeBeat={active?.talaPos ?? null} />
+              </div>
+            </div>
+          ) : (
+            <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
+              activeBeat={active?.talaPos ?? null} onStop={stop} mobile={false} />
+          )}
 
           {/* Tempo + Kālam */}
           <div style={{display:'flex', alignItems:'center', gap:20, marginBottom:16,
@@ -1126,12 +1294,10 @@ export default function App() {
               <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
               <div style={{display:'flex', gap:4}}>
                 {kalamOpts.map(k => (
-                  <div key={k.val} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
-                    <button onClick={() => setKalam(k.val)}
-                      style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
-                      {k.label}
-                    </button>
-                  </div>
+                  <button key={k.val} onClick={() => setKalam(k.val)}
+                    style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
+                    {k.label}
+                  </button>
                 ))}
               </div>
             </div>
@@ -1171,7 +1337,7 @@ export default function App() {
           {sequenceRows}
 
           <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-            Phase 1 · Alankāram Practice Guide
+            Phase 1 · {mode === 'alankaram' ? 'Alankāram' : 'Varisai'} Practice Guide
           </div>
         </div>
 
