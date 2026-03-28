@@ -1097,6 +1097,7 @@ export default function App() {
             baseF={baseF} ctxRef={ctxRef} stop={stop}
             showAbout={() => { setDrawerOpen(false); setAboutOpen(true) }}
             startMetro={startMetro} stopMetro={stopMetro} playing={playing}
+            mode={mode}
           />
         )}
 
