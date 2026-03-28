@@ -414,33 +414,41 @@ function AboutModal({ onClose }) {
         </div>
 
         <div style={{fontSize:13, lineHeight:1.8, color:T.text, marginBottom:20}}>
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHAT IS PANCHAMAM?</div>
-          <p>
-            Panchamam is a companion in your Carnatic music journey. It is certainly not your trainer, but a practice guide.
-          </p>
+        <div style={{display:'flex', flexDirection:'column', gap:12, marginBottom:20}}>
+
+          {[
+            {
+              q: 'What is Panchamam?',
+              a: 'Panchamam is a companion in your Carnatic music journey. It is certainly not your trainer — but a practice guide.'
+            },
+            {
+              q: 'Who is it for?',
+              a: (
+                <ul style={{margin:0, paddingLeft:16, lineHeight:1.9}}>
+                  <li>Anyone looking to practice Carnatic music at home.</li>
+                  <li>Beginners — get familiar with the sounds of different swarams, rāgams and tālams.</li>
+                  <li>Mid- or senior-level learners — explore new rāgams and practice alankārams.</li>
+                  <li>And the best part — you can sing along!</li>
+                </ul>
+              )
+            },
+            {
+              q: 'Who built this?',
+              a: 'A fellow Carnatic music learner. Built for herself originally, then opened it up to everyone. Happy learning!'
+            },
+          ].map(({q, a}) => (
+            <div key={q} style={{
+              background:T.bg, border:`0.5px solid ${T.border}`,
+              borderRadius:8, padding:'14px 16px',
+            }}>
+              <div style={{fontSize:11, color:T.amber, fontWeight:500,
+                letterSpacing:'0.03em', marginBottom:8}}>{q}</div>
+              <div style={{fontSize:13, color:T.text, lineHeight:1.7}}>{a}</div>
+            </div>
+          ))}
+
         </div>
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHO IS IT FOR?</div>
-          <p style={{marginBottom:8}}>
-            Anyone looking to practice Carnatic music at home.
-          </p>
-          <p style={{marginBottom:8}}>
-            If you are a beginner, this app can help you get familiar with the sounds of different swarams, rāgams and tālams.
-          </p>
-          <p>
-            If you are a mid- or senior-level learner currently exploring new rāgams, this app will help you grasp them better with alankāram practice. 
-            </p>
-            <p>
-            And the best part is you can sing along!!
-          </p>
-        </div>
-        <div>
-          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>WHO BUILT THIS?</div>
-          <p>
-            A fellow Carnatic music learner. Built for herself originally, then opened it up to everyone. Happy learning!
-          </p>
-        </div>
+        
       </div>
 
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16, display:'flex',
@@ -536,11 +544,17 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
         {/* Rāgam section */}
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:10}}>RĀGAM</div>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>Tap 🔍 to change rāgam</div>
-          <button onClick={() => setSearchOpen(true)}
-              style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
-                color:T.amber, fontSize:16, padding:'4px 8px', cursor:'pointer', lineHeight:1}}>🔍</button>
+          <div style={{position:'relative', marginBottom:10}}>
+            <div style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+              fontSize:14, color:T.muted, pointerEvents:'none'}}>🔍</div>
+            <input
+              readOnly
+              onClick={() => setSearchOpen(true)}
+              placeholder="Search rāgam..."
+              style={{width:'100%', padding:'8px 10px 8px 32px',
+                border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
+                background:T.surface, color:T.text, boxSizing:'border-box', cursor:'pointer'}}
+            />
           </div>
           <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
         </div>
@@ -572,7 +586,12 @@ function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattai
         <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
           <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:12}}>AUDIO</div>
           {[
-            { label:'Metronome', on:metroOn, toggle:() => setMetroOn(v => !v), color:T.blue },
+            { label:'Metronome', on:metroOn, toggle:() => {
+                const next = !metroOn
+                setMetroOn(next)
+                if (next && !playing) startMetro()
+                else stopMetro()
+              }, color:T.blue },
             { label:'Shruti drone', on:droneOn, toggle:toggleDrone, color:T.teal },
             { label:'Swara audio', on:swaraOn, toggle:() => setSwaraOn(v => !v), color:T.amber },
           ].map(({label, on, toggle, color}) => (
@@ -636,6 +655,8 @@ export default function App() {
   const timerRef = useRef(null)
   const posRef   = useRef({row:0, swaraPos:0, talaPos:0})
   const stRef    = useRef({})
+  const metroTimerRef = useRef(null)
+
 
   const raga  = RAAGAM[ragaIdx]
   const tala  = TAALAM[talaIdx]
@@ -651,14 +672,29 @@ export default function App() {
     return ctxRef.current
   }
 
+  function startMetro() {
+    const ctx = getCtx()
+    const tick = () => {
+      if (!stRef.current.metroOn || stRef.current.playing) return
+      playClick(ctx, ctx.currentTime, 'L', true)
+      const dur = 60 / stRef.current.bpm
+      metroTimerRef.current = setTimeout(tick, dur * 1000)
+    }
+    tick()
+  }
+
+  function stopMetro() {
+    clearTimeout(metroTimerRef.current)
+  }
+
   function playNote(ctx, f, t, dur) {
     if (!f) return
     const o = ctx.createOscillator(), g = ctx.createGain()
     o.connect(g); g.connect(ctx.destination)
     o.type = 'sine'; o.frequency.value = f
     g.gain.setValueAtTime(0, t)
-    g.gain.linearRampToValueAtTime(0.6, t + 0.015)
-    g.gain.setValueAtTime(0.6, t + dur * 0.6)
+    g.gain.linearRampToValueAtTime(0.8, t + 0.015)
+    g.gain.setValueAtTime(0.8, t + dur * 0.6)
     g.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95)
     o.start(t); o.stop(t + dur)
   }
@@ -670,7 +706,7 @@ export default function App() {
     if (angaStart && anga === 'L')      { o.frequency.value = 880; g.gain.setValueAtTime(0.12, t) }
     else if (angaStart && anga === 'D') { o.frequency.value = 660; g.gain.setValueAtTime(0.09, t) }
     else if (angaStart && anga === 'U') { o.frequency.value = 550; g.gain.setValueAtTime(0.09, t) }
-    else                                { o.frequency.value = 330; g.gain.setValueAtTime(0.04, t) }
+    else                                { o.frequency.value = 330; g.gain.setValueAtTime(0.12, t) }
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.03)
     o.start(t); o.stop(t + 0.04)
   }
@@ -713,6 +749,7 @@ export default function App() {
   }
 
   function start() {
+    stopMetro()
     const ctx = getCtx()
     ctx.resume().then(() => {
       posRef.current = {row:0, swaraPos:0, talaPos:0}
@@ -727,28 +764,89 @@ export default function App() {
     setPlaying(false); clearTimeout(timerRef.current)
     setActive(null)
     posRef.current = {row:0, swaraPos:0, talaPos:0}
+    if (stRef.current.metroOn) startMetro()
   }
 
   useEffect(() => () => stop(), [])
 
-  function toggleDrone() {
-    getCtx()
+
+  useEffect(() => {
     if (droneOn) {
       droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
-      droneRef.current = []; setDroneOn(false)
-    } else {
-      const ctx = getCtx()
-      const master = ctx.createGain(); master.gain.value = 0.12; master.connect(ctx.destination)
-      [[baseF,'sine',1],[baseF*1.002,'triangle',0.3],[hz(baseF,7),'sine',0.35],[baseF*2,'sine',0.18]]
-        .forEach(([f,type,g]) => {
-          const o = ctx.createOscillator(), gn = ctx.createGain()
-          o.type=type; o.frequency.value=f; gn.gain.value=g
-          o.connect(gn); gn.connect(master); o.start()
-          droneRef.current.push(o)
-        })
-      droneRef.current.push(master); setDroneOn(true)
+      droneRef.current = []
+      const ctx = ctxRef.current
+      if (!ctx) return
+      const master = ctx.createGain()
+      master.gain.value = 0.07
+      master.connect(ctx.destination);
+      [
+        [baseF, 'sawtooth', 0.6],
+        [baseF * 1.003, 'sawtooth', 0.4],
+        [hz(baseF, 7), 'sawtooth', 0.5],
+        [baseF * 2, 'sawtooth', 0.3],
+      ].forEach(([f, type, g]) => {
+        const o = ctx.createOscillator(), gn = ctx.createGain()
+        const filter = ctx.createBiquadFilter()
+        o.type = type; o.frequency.value = f
+        filter.type = 'lowpass'; filter.frequency.value = f * 4; filter.Q.value = 0.5
+        gn.gain.value = g
+        o.connect(filter); filter.connect(gn); gn.connect(master); o.start()
+        droneRef.current.push(o); droneRef.current.push(gn)
+      })
+      droneRef.current.push(master)
     }
-  }
+  }, [baseF])
+
+  function toggleDrone() {
+    console.log('toggleDrone called, droneOn:', droneOn, 'baseF:', baseF)
+    if (droneOn) {
+        droneRef.current.forEach(n => { try { if(n.stop) n.stop(); n.disconnect() } catch(e){} })
+        droneRef.current = []
+        setDroneOn(false)
+      } else {
+        if (!ctxRef.current) ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+        const ctx = ctxRef.current
+        ctx.resume().then(() => {
+          const master = ctx.createGain()
+          master.gain.value = 0.07
+          master.connect(ctx.destination)
+
+          // Tanpura strings: lower Sa, Pa, upper Sa, upper Sa (slight detune)
+          const strings = [
+            [baseF / 2, 0.6],           // lower Sa (mandara Sa)
+            [hz(baseF, 7), 0.5],        // Pa
+            [baseF, 0.7],               // Sa
+            [baseF * 1.003, 0.4],       // Sa slightly detuned (chorus effect)
+            [baseF * 2, 0.3],           // upper Sa
+          ]
+
+          strings.forEach(([freq, gain]) => {
+            const o = ctx.createOscillator()
+            const gn = ctx.createGain()
+            const filter = ctx.createBiquadFilter()
+
+            o.type = 'sawtooth'  // richer harmonics than sine
+            o.frequency.value = freq
+
+            filter.type = 'lowpass'
+            filter.frequency.value = freq * 4  // roll off harsh highs
+            filter.Q.value = 0.5
+
+            gn.gain.value = gain
+
+            o.connect(filter)
+            filter.connect(gn)
+            gn.connect(master)
+            o.start()
+
+            droneRef.current.push(o)
+            droneRef.current.push(gn)
+          })
+          droneRef.current.push(master)
+          setDroneOn(true)
+        })
+      }
+    }
 
   const chip = (rowIdx, bi, isActive, isActiveRow) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center',
@@ -1056,7 +1154,12 @@ export default function App() {
             <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
               {droneOn ? '◉' : '○'} Shruti drone
             </button>
-            <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
+            <button onClick={() => {
+              const next = !metroOn
+              setMetroOn(next)
+              if (next && !playing) startMetro()
+              else stopMetro()
+            }} style={btn(metroOn,'blue')}>
               {metroOn ? '◉' : '○'} Metronome
             </button>
             <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
