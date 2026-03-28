@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { RAAGAM, JANYA_BY_MELA, swaraLabel } from './data/ragam'
-import { SARALI, DATU, ADI_BEATS } from './data/varisai'
+import { SARALI, JANTA, DATU, ADI_BEATS } from './data/varisai'
 import { TAALAM } from './data/talam'
 import { inject } from '@vercel/analytics'
 inject()
@@ -44,7 +44,7 @@ function buildVarisaiRows(raga, baseF, type, patternIdx) {
   const upper = { l:'Ṡ', v:12 }
   const swaras = [...raga.s, upper] // indices 0-7
 
-  const patterns = type === 'sarali' ? SARALI : DATU
+  const patterns = type === 'sarali' ? SARALI : type === 'janta' ? JANTA : DATU
   const pattern = patterns[patternIdx] || patterns[0]
 
   let lastFreq = null
@@ -256,7 +256,7 @@ function VarisaiSelector({ varisaiType, setVarisaiType, varisaiPattern, setVaris
     <div style={{borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
       {/* Type tabs */}
       <div style={{display:'flex', gap:5, padding:'10px 16px 0'}}>
-        {[{label:'Sarali', val:'sarali'}, {label:'Datu', val:'datu'}].map(v => (
+        {[{label:'Sarali', val:'sarali'}, {label:'Janta', val:'janta'}, {label:'Datu', val:'datu'}].map(v => (
           <div key={v.val} onClick={() => { onStop(); setVarisaiType(v.val); setVarisaiPattern(0) }}
             style={{
               padding:'6px 16px', borderRadius:'6px 6px 0 0', cursor:'pointer',
@@ -579,16 +579,16 @@ function AboutModal({ onClose }) {
           {[
             {
               q: 'What is Panchamam?',
-              a: 'Panchamam is a companion in your Carnatic music journey. It is certainly not your trainer — but a practice guide.'
+              a: 'Panchamam is a companion in your Carnatic music journey. It is certainly not your trainer, but a practice guide.'
             },
             {
               q: 'Who is it for?',
               a: (
                 <ul style={{margin:0, paddingLeft:16, lineHeight:1.9}}>
                   <li>Anyone looking to practice Carnatic music at home.</li>
-                  <li>Beginners — get familiar with the sounds of different swarams, rāgams and tālams.</li>
-                  <li>Mid- or senior-level learners — explore new rāgams and practice alankārams.</li>
-                  <li>And the best part — you can sing along!</li>
+                  <li>Beginners: Get familiar with the sounds of different swarams.</li>
+                  <li>Mid- or senior-level learners — explore new rāgams, tālams and practice alankārams.</li>
+                  <li>And the best part is you can sing/ aa-karam along!</li>
                 </ul>
               )
             },
