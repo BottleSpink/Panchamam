@@ -453,11 +453,11 @@ function AboutModal({ onClose }) {
 
         <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16, display:'flex',
           flexDirection:'column', gap:10}}>
-          <a href="https://forms.gle" target="_blank" rel="noreferrer"
+          <a href="https://forms.gle/cVYK8dv6tx3ESsLZ9" target="_blank" rel="noreferrer"
             style={{fontSize:12, color:T.teal, textDecoration:'none'}}>
             For any feedback, corrections, requests — or if you just want to say hi
           </a>
-          <a href="https://buy.stripe.com" target="_blank" rel="noreferrer"
+          <a href="https://razorpay.me/@panchamam" target="_blank" rel="noreferrer"
             style={{fontSize:12, color:T.amber, textDecoration:'none'}}>
             If this helped your practice, you can support me here
           </a>
