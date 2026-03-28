@@ -667,11 +667,17 @@ export default function App() {
                   {row.baseLabel}
                 </span>
                 {row.beats.map((b, bi) => {
-                  const isActive = isActiveRow &&
-                    bi >= (active?.beatStart ?? -1) &&
-                    bi < (active?.beatStart ?? -1) + (active?.count ?? 0)
+                  const start = active?.beatStart ?? -1
+                  const count = active?.count ?? 0
+                  const rowLen = row.beats.length
+                  const overflow = Math.max(0, start + count - rowLen)
+
+                  const isActive = isActiveRow
+                    ? (bi >= start && bi < start + count)
+                    : (active?.row === ri - 1 && bi < overflow)
+
                   return (
-                    <span key={bi} style={chip(ri, bi, isActive, isActiveRow)}>
+                    <span key={bi} style={chip(ri, bi, isActive, isActiveRow || (active?.row === ri - 1 && bi < overflow))}>
                       {b.label}
                     </span>
                   )
@@ -698,11 +704,17 @@ export default function App() {
                   {row.baseLabel}
                 </span>
                 {row.beats.map((b, bi) => {
-                  const isActive = isActiveRow &&
-                    bi >= (active?.beatStart ?? -1) &&
-                    bi < (active?.beatStart ?? -1) + (active?.count ?? 0)
+                  const start = active?.beatStart ?? -1
+                  const count = active?.count ?? 0
+                  const rowLen = row.beats.length
+                  const overflow = Math.max(0, start + count - rowLen)
+
+                  const isActive = isActiveRow
+                    ? (bi >= start && bi < start + count)
+                    : (active?.row === gr - 1 && bi < overflow)
+
                   return (
-                    <span key={bi} style={chip(gr, bi, isActive, isActiveRow)}>
+                    <span key={bi} style={chip(gr, bi, isActive, isActiveRow || (active?.row === gr - 1 && bi < overflow))}>
                       {b.label}
                     </span>
                   )
