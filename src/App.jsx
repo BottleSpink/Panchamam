@@ -30,19 +30,6 @@ const T = {
 
 function hz(base, semi) { return base * Math.pow(2, semi / 12) }
 
-function getAngaSegments(pat) {
-  const segments = []
-  let cur = null
-  pat.forEach((p, i) => {
-    if (p.s) {
-      if (cur) segments.push(cur)
-      cur = { type: p.a, startBeat: i, count: 1 }
-    } else if (cur) { cur.count++ }
-  })
-  if (cur) segments.push(cur)
-  return segments
-}
-
 function playSequence(notes, baseF, ctxRef) {
   const ctx = ctxRef.current || (ctxRef.current = new (window.AudioContext || window.webkitAudioContext)())
   if (ctx.state === 'suspended') ctx.resume()
@@ -101,7 +88,6 @@ function buildRows(raga, tala, baseF) {
   return rows
 }
 
-// ── useIsMobile ────────────────────────────────────────────────
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   useEffect(() => {
@@ -147,12 +133,18 @@ function Pendulum({ playing, bpm }) {
   )
 }
 
-// ── Tālam Cards ────────────────────────────────────────────────
-function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
+// ── Tālam Cards — desktop wrap, mobile horizontal scroll ───────
+function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop, mobile }) {
   return (
     <div style={{marginBottom:16}}>
-      <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>TĀLAM</div>
-      <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+      {!mobile && <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>TĀLAM</div>}
+      <div style={{
+        display:'flex', gap:6,
+        flexWrap: mobile ? 'nowrap' : 'wrap',
+        overflowX: mobile ? 'auto' : 'visible',
+        paddingBottom: mobile ? 4 : 0,
+        scrollbarWidth:'none',
+      }}>
         {TAALAM.map((t, i) => {
           const isSel = i === talaIdx
           let beatCursor = 0
@@ -168,7 +160,9 @@ function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
                 padding:'8px 10px', borderRadius:8, cursor:'pointer',
                 border:`0.5px solid ${isSel ? T.amber : T.border}`,
                 background: isSel ? T.amberBg : T.surface,
-                transition:'all 0.15s', minWidth: isSel ? 'auto' : 72,
+                transition:'all 0.15s',
+                minWidth: mobile ? 'auto' : (isSel ? 'auto' : 72),
+                flexShrink: mobile ? 0 : 1,
               }}>
               <div style={{fontSize:11, fontWeight:500, marginBottom: isSel ? 8 : 4,
                 color: isSel ? T.amber : T.text}}>{t.name}</div>
@@ -240,60 +234,22 @@ function TalamCards({ talaIdx, setTalaIdx, activeBeat, onStop }) {
   )
 }
 
-// ── Kattai Panel — desktop vertical ───────────────────────────
+// ── Kattai Panel — desktop ─────────────────────────────────────
 function KattaiPanel({ kattaiIdx, setKattaiIdx }) {
   return (
     <div style={{
-      borderLeft:`0.5px solid ${T.border}`,
-      background:T.sidebar,
-      padding:'16px 8px',
-      display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+      borderLeft:`0.5px solid ${T.border}`, background:T.sidebar,
+      padding:'16px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:3,
       overflowY:'auto', minWidth:68,
     }}>
       <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em',
-        marginBottom:8, textAlign:'center', lineHeight:1.6}}>
-        KATTAI<br/>SHRUTI
-      </div>
+        marginBottom:8, textAlign:'center', lineHeight:1.6}}>KATTAI<br/>SHRUTI</div>
       {KATTAI.map((k, i) => {
         const isSel = i === kattaiIdx
         return (
           <button key={i} onClick={() => setKattaiIdx(i)}
             style={{
-              fontFamily:'inherit', cursor:'pointer', width:52,
-              padding:'5px 4px', borderRadius:5,
-              border:`0.5px solid ${isSel ? T.amber : T.border}`,
-              background: isSel ? T.amber : T.surface,
-              display:'flex', flexDirection:'column', alignItems:'center', gap:1,
-            }}>
-            <span style={{fontSize:11, fontWeight: isSel ? 700 : 400,
-              color: isSel ? '#0a0a0a' : T.text}}>{k.l}</span>
-            <span style={{fontSize:9, color: isSel ? '#3a2a00' : T.dim}}>{k.w}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Kattai Strip — mobile horizontal ──────────────────────────
-function KattaiStrip({ kattaiIdx, setKattaiIdx }) {
-  return (
-    <div style={{
-      borderBottom:`0.5px solid ${T.border}`,
-      background:T.sidebar,
-      padding:'8px 12px',
-      display:'flex', alignItems:'center', gap:6,
-      overflowX:'auto',
-    }}>
-      <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em',
-        whiteSpace:'nowrap', marginRight:4}}>KATTAI</div>
-      {KATTAI.map((k, i) => {
-        const isSel = i === kattaiIdx
-        return (
-          <button key={i} onClick={() => setKattaiIdx(i)}
-            style={{
-              fontFamily:'inherit', cursor:'pointer', flexShrink:0,
-              padding:'4px 8px', borderRadius:5,
+              fontFamily:'inherit', cursor:'pointer', width:52, padding:'5px 4px', borderRadius:5,
               border:`0.5px solid ${isSel ? T.amber : T.border}`,
               background: isSel ? T.amber : T.surface,
               display:'flex', flexDirection:'column', alignItems:'center', gap:1,
@@ -313,31 +269,29 @@ function RAAGAMearch({ value, onChange }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
     return RAAGAM.filter(r => r.name.toLowerCase().includes(q))
   }, [query])
-
   useEffect(() => {
     const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
   const selected = RAAGAM[value]
-
   return (
     <div ref={ref} style={{position:'relative'}}>
-      <input
-        value={open ? query : selected?.name || ''}
-        onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => { setQuery(''); setOpen(true) }}
-        placeholder="Search rāgam..."
-        style={{width:'100%', padding:'8px 10px',
-          border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
-          background:T.surface, color:T.text, boxSizing:'border-box'}}
-      />
+    <div style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+      fontSize:14, color:T.muted, pointerEvents:'none'}}>🔍</div>
+    <input
+      value={open ? query : ''}
+      onChange={e => { setQuery(e.target.value); setOpen(true) }}
+      onFocus={() => { setQuery(''); setOpen(true) }}
+      placeholder="Search rāgam..."
+      style={{width:'100%', padding:'8px 10px 8px 32px',
+        border:`0.5px solid ${T.border}`, borderRadius:6, fontSize:13,
+        background:T.surface, color:T.text, boxSizing:'border-box'}}
+    />
       {open && filtered.length > 0 && (
         <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:100,
           background:T.surface, border:`0.5px solid ${T.border}`, borderRadius:6,
@@ -354,9 +308,7 @@ function RAAGAMearch({ value, onChange }) {
                 <div style={{fontWeight: isSel ? 500 : 400,
                   color: isSel ? T.amber : T.text}}>{r.name}</div>
                 <div style={{fontSize:11, color:T.muted, marginTop:1}}>
-                  {r.type === 'melakartha'
-                    ? `Melakartha · #${r.mela}`
-                    : `Janya · ${r.melaName} (${r.mela})`}
+                  {r.type === 'melakartha' ? `Melakartha · #${r.mela}` : `Janya · ${r.melaName} (${r.mela})`}
                 </div>
               </div>
             )
@@ -376,7 +328,6 @@ function RagaPanel({ raga, baseF, ctxRef }) {
   const upper = { l:'Ṡ', v:12 }
   const aroSwaras = [...raga.s, upper]
   const avoSwaras = [upper, ...[...raga.s].reverse()]
-
   const badge = (label, bg, color, border) => (
     <span style={{fontSize:11, padding:'2px 8px', borderRadius:5, fontWeight:500,
       background:bg, color, border:`0.5px solid ${border}`}}>{label}</span>
@@ -397,16 +348,16 @@ function RagaPanel({ raga, baseF, ctxRef }) {
       {sw.l}
     </span>
   )
-
   return (
     <div style={{fontSize:13, color:T.text}}>
       <div style={{fontWeight:500, fontSize:15, marginBottom:8}}>{raga.name}</div>
-      <div style={{display:'flex', gap:5, marginBottom:14, flexWrap:'wrap'}}>
+      <div style={{display:'flex', gap:5, marginBottom:8, flexWrap:'wrap'}}>
         {raga.type === 'melakartha'
           ? badge(`Melakartha · #${raga.mela}`, T.blueBg, T.blue, T.blueBdr)
           : badge(`Janya · ${raga.melaName} (${raga.mela})`, T.tealBg, T.teal, T.tealBdr)}
         {raga.vakra && badge('Vakra', T.amberBg, T.amber, T.amberBdr)}
       </div>
+      <div style={{fontSize:11, color:T.dim, marginBottom:12}}>{swCount} notes · {swLabel}</div>
       <div style={{marginBottom:12}}>
         <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:5}}>
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em'}}>ĀROHANA</div>
@@ -421,10 +372,6 @@ function RagaPanel({ raga, baseF, ctxRef }) {
         </div>
         <div style={{display:'flex', flexWrap:'wrap'}}>{avoSwaras.map(swaraChip)}</div>
       </div>
-      <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:10, marginBottom:12}}>
-        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:4}}>SWARAS</div>
-        <div style={{fontSize:12, color:T.dim}}>{swCount} notes · {swLabel}</div>
-      </div>
       {raga.vakra && (
         <div style={{background:T.amberBg, borderRadius:6, padding:'8px 10px', marginBottom:12,
           fontSize:11, color:T.amber, border:`0.5px solid ${T.amberBdr}`}}>
@@ -436,11 +383,217 @@ function RagaPanel({ raga, baseF, ctxRef }) {
           <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:6}}>
             JANYA RAAGAM ({janyaList.length})
           </div>
-          <div style={{fontSize:11, color:T.dim, lineHeight:1.9}}>
-            {janyaList.join(' · ')}
-          </div>
+          <div style={{fontSize:11, color:T.dim, lineHeight:1.9}}>{janyaList.join(' · ')}</div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── About Modal ────────────────────────────────────────────────
+function AboutModal({ onClose }) {
+  return (
+    <div style={{position:'fixed', inset:0, zIndex:300, display:'flex',
+      alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.75)'}}
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        style={{
+          background:T.sidebar, border:`0.5px solid ${T.border}`, borderRadius:12,
+          padding:'32px', maxWidth:420, width:'90%', color:T.text,
+        }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24}}>
+          <div>
+            <div style={{fontFamily:'"Cormorant Garamond", Georgia, serif',
+              fontSize:22, color:T.amber, letterSpacing:'1px'}}>Panchamam</div>
+            <div style={{fontSize:11, color:T.muted, marginTop:4,
+              fontFamily:'"Noto Serif Tamil", serif'}}>பஞ்சமம் — the note that never wavers</div>
+          </div>
+          <button onClick={onClose}
+            style={{background:'none', border:'none', color:T.dim,
+              fontSize:20, cursor:'pointer', padding:'0 4px', lineHeight:1}}>✕</button>
+        </div>
+
+        <div style={{fontSize:13, lineHeight:1.8, color:T.text, marginBottom:20}}>
+          <p style={{marginBottom:12}}>
+            Panchamam is a practice companion. Not your trainer — a companion.
+          </p>
+          <p style={{marginBottom:12}}>
+            It's for anyone looking to practice Carnatic music at home. Beginners,
+            or mid-level learners who want to explore a raga, sing the alankāram, and just practice.
+          </p>
+          <p style={{marginBottom:0}}>
+            Built by a fellow Carnatic music learner. Built for herself originally,
+            then opened up to everyone.
+          </p>
+        </div>
+
+        <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16, display:'flex',
+          flexDirection:'column', gap:10}}>
+          <a href="https://forms.gle" target="_blank" rel="noreferrer"
+            style={{fontSize:12, color:T.teal, textDecoration:'none'}}>
+            💬 Feedback, corrections, requests — or just say hi
+          </a>
+          <a href="https://buy.stripe.com" target="_blank" rel="noreferrer"
+            style={{fontSize:12, color:T.amber, textDecoration:'none'}}>
+            ☕ If this helped your practice, you can support it here
+          </a>
+        </div>
+
+        <div style={{marginTop:16, fontSize:10, color:T.dim}}>
+          Phase 1 · Alankāram Practice · panchamam.app
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Mobile Drawer ──────────────────────────────────────────────
+function MobileDrawer({ onClose, raga, ragaIdx, setRagaIdx, kattaiIdx, setKattaiIdx,
+  metroOn, setMetroOn, droneOn, toggleDrone, swaraOn, setSwaraOn,
+  baseF, ctxRef, stop, showAbout }) {
+
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase()
+    return RAAGAM.filter(r => r.name.toLowerCase().includes(q))
+  }, [query])
+
+  // Full screen search overlay
+  if (searchOpen) {
+    return (
+      <div style={{position:'fixed', inset:0, zIndex:300, background:T.bg,
+        display:'flex', flexDirection:'column'}}>
+        <div style={{padding:'16px', borderBottom:`0.5px solid ${T.border}`,
+          display:'flex', gap:10, alignItems:'center'}}>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search rāgam..."
+            style={{flex:1, padding:'10px 12px',
+              border:`0.5px solid ${T.amber}`, borderRadius:6, fontSize:14,
+              background:T.surface, color:T.text}}
+          />
+          <button onClick={() => { setSearchOpen(false); setQuery('') }}
+            style={{background:'none', border:'none', color:T.muted,
+              fontSize:13, cursor:'pointer', padding:'0 4px'}}>Cancel</button>
+        </div>
+        <div style={{flex:1, overflowY:'auto'}}>
+          {filtered.map((r, i) => {
+            const idx = RAAGAM.indexOf(r)
+            const isSel = idx === ragaIdx
+            return (
+              <div key={i} onClick={() => {
+                stop(); setRagaIdx(idx); setSearchOpen(false); setQuery(''); onClose()
+              }}
+                style={{padding:'12px 16px', borderBottom:`0.5px solid ${T.border}`,
+                  cursor:'pointer', background: isSel ? T.amberBg : 'transparent'}}>
+                <div style={{fontSize:14, color: isSel ? T.amber : T.text,
+                  fontWeight: isSel ? 500 : 400}}>{r.name}</div>
+                <div style={{fontSize:11, color:T.muted, marginTop:2}}>
+                  {r.type === 'melakartha' ? `Melakartha · #${r.mela}` : `Janya · ${r.melaName} (${r.mela})`}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{position:'fixed', inset:0, zIndex:200, display:'flex'}}>
+      <div style={{width:300, background:T.sidebar, display:'flex',
+        flexDirection:'column', overflowY:'auto'}}>
+
+        {/* Drawer header */}
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:'18px 16px 14px', borderBottom:`0.5px solid ${T.border}`, flexShrink:0}}>
+          <div style={{fontSize:11, color:T.muted, letterSpacing:'0.1em'}}>SETTINGS</div>
+          <button onClick={onClose}
+            style={{background:'none', border:'none', color:T.dim,
+              fontSize:20, cursor:'pointer'}}>✕</button>
+        </div>
+
+        {/* Rāgam section */}
+        <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:10}}>RĀGAM</div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+            <div style={{fontSize:15, fontWeight:500, color:T.text}}>{raga?.name}</div>
+            <button onClick={() => setSearchOpen(true)}
+              style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
+                color:T.amber, fontSize:16, padding:'4px 8px', cursor:'pointer', lineHeight:1}}>🔍</button>
+          </div>
+          <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
+        </div>
+
+        {/* Kattai section */}
+        <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>KATTAI / SHRUTI</div>
+          <div style={{display:'flex', flexWrap:'wrap', gap:4}}>
+            {KATTAI.map((k, i) => {
+              const isSel = i === kattaiIdx
+              return (
+                <button key={i} onClick={() => setKattaiIdx(i)}
+                  style={{
+                    fontFamily:'inherit', cursor:'pointer', padding:'4px 8px', borderRadius:5,
+                    border:`0.5px solid ${isSel ? T.amber : T.border}`,
+                    background: isSel ? T.amber : T.surface,
+                    display:'flex', flexDirection:'column', alignItems:'center', gap:1,
+                  }}>
+                  <span style={{fontSize:11, fontWeight: isSel ? 700 : 400,
+                    color: isSel ? '#0a0a0a' : T.text}}>{k.l}</span>
+                  <span style={{fontSize:9, color: isSel ? '#3a2a00' : T.dim}}>{k.w}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Audio toggles */}
+        <div style={{padding:'14px 16px', borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:12}}>AUDIO</div>
+          {[
+            { label:'Metronome', on:metroOn, toggle:() => setMetroOn(v => !v), color:T.blue },
+            { label:'Shruti drone', on:droneOn, toggle:toggleDrone, color:T.teal },
+            { label:'Swara audio', on:swaraOn, toggle:() => setSwaraOn(v => !v), color:T.amber },
+          ].map(({label, on, toggle, color}) => (
+            <div key={label} style={{display:'flex', justifyContent:'space-between',
+              alignItems:'center', marginBottom:12}}>
+              <span style={{fontSize:13, color:T.muted}}>{label}</span>
+              <div onClick={toggle} style={{
+                width:40, height:22, borderRadius:11, cursor:'pointer',
+                background: on ? T.amberBg : T.surface,
+                border:`0.5px solid ${on ? T.amberBdr : T.border}`,
+                position:'relative', transition:'all 0.2s',
+              }}>
+                <div style={{
+                  width:16, height:16, borderRadius:'50%',
+                  background: on ? color : T.dim,
+                  position:'absolute', top:3,
+                  left: on ? 20 : 3,
+                  transition:'all 0.2s',
+                }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* About */}
+        <div style={{padding:'14px 16px'}}>
+          <button onClick={showAbout}
+            style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
+              color:T.muted, fontSize:12, padding:'8px 14px', cursor:'pointer',
+              width:'100%', fontFamily:'inherit'}}>
+            About Panchamam
+          </button>
+        </div>
+
+      </div>
+      {/* Tap outside to close */}
+      <div style={{flex:1, background:'rgba(0,0,0,0.5)'}} onClick={onClose}/>
     </div>
   )
 }
@@ -457,7 +610,8 @@ export default function App() {
   const [metroOn, setMetroOn]     = useState(true)
   const [swaraOn, setSwaraOn]     = useState(true)
   const [active, setActive]       = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [aboutOpen, setAboutOpen]   = useState(false)
 
   const isMobile = useIsMobile()
 
@@ -587,8 +741,7 @@ export default function App() {
     background: isActive ? T.amber : isActiveRow ? '#1e1e1e' : T.surface,
     color: isActive ? '#0a0a0a' : isActiveRow ? T.text : '#aaa',
     fontWeight: isActive ? 700 : isActiveRow ? 500 : 400,
-    marginLeft: 2,
-    transition: 'background 0.06s',
+    marginLeft: 2, transition: 'background 0.06s',
   })
 
   const btn = (isActive, color) => {
@@ -607,115 +760,12 @@ export default function App() {
   }
 
   const kalamOpts = [
-    {label:'1×', val:1, sub:'1 note/beat'},
-    {label:'2×', val:2, sub:'2 notes/beat'},
-    {label:'3×', val:4, sub:'4 notes/beat'},
+    {label:'1×', val:1}, {label:'2×', val:2}, {label:'3×', val:4},
   ]
 
-  // ── Shared main content ────────────────────────────────────
-  const mainContent = (
-    <div style={{padding: isMobile ? '16px' : '24px 28px', flex:1, overflowY:'auto',
-      maxWidth: isMobile ? '100%' : 760}}>
-
-      {/* Header */}
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between',
-        paddingBottom:16, marginBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
-
-        {/* ப + Panchamam — always left */}
-        <div style={{display:'flex', alignItems:'center', gap:10}}>
-          <div style={{
-            width:36, height:36, borderRadius:'50%', background:T.amberBg,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:19, color:T.amber, fontFamily:'"Noto Serif Tamil", serif', flexShrink:0,
-          }}>ப</div>
-          <div>
-            <div style={{fontSize: isMobile ? 18 : 22, color:T.amber, lineHeight:1,
-              fontFamily:'"Cormorant Garamond", Georgia, serif',
-              fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
-            <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
-              Alankāram
-            </div>
-          </div>
-        </div>
-
-        {/* ☰ Raga — mobile only, right side */}
-        {isMobile && (
-          <button onClick={() => setSidebarOpen(true)}
-            style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
-              color:T.muted, fontSize:12, padding:'5px 10px', cursor:'pointer',
-              display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
-            ☰
-            <span style={{color:T.amber, fontWeight:500, maxWidth:90,
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-              {raga.name}
-            </span>
-          </button>
-        )}
-      </div>
-      {/* Kattai strip — mobile only */}
-      {isMobile && <KattaiStrip kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />}
-
-      <div style={{marginTop: isMobile ? 12 : 0}}>
-        <TalamCards
-          talaIdx={talaIdx} setTalaIdx={setTalaIdx}
-          activeBeat={active?.talaPos ?? null} onStop={stop}
-        />
-      </div>
-
-      {/* Tempo + Kālam */}
-      <div style={{display:'flex', alignItems:'center', gap: isMobile ? 10 : 20, marginBottom:16,
-        padding:'12px 16px', background:T.surface, borderRadius:8,
-        border:`0.5px solid ${T.border}`, flexWrap: isMobile ? 'wrap' : 'nowrap'}}>
-        <Pendulum playing={playing} bpm={bpm} />
-        <div style={{flex:1, minWidth:100, maxWidth:240}}>
-          <input type="range" min="30" max="180" step="1" value={bpm}
-            onChange={e => setBpm(+e.target.value)}
-            style={{width:'100%', accentColor:T.amber}} />
-        </div>
-        <div style={{display:'flex', flexDirection:'column', gap:4,
-          alignItems: isMobile ? 'flex-start' : 'flex-end'}}>
-          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
-          <div style={{display:'flex', gap:4}}>
-            {kalamOpts.map(k => (
-              <div key={k.val} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
-                <button onClick={() => setKalam(k.val)}
-                  style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
-                  {k.label}
-                </button>
-                <span style={{fontSize:8, color:T.dim, whiteSpace:'nowrap'}}>{k.sub}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Play + Transport */}
-      <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap',
-        paddingBottom:16, marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
-        <button onClick={playing ? stop : start}
-          style={{
-            fontFamily:'inherit', fontSize:15, fontWeight:700,
-            padding:'12px 36px', borderRadius:8, cursor:'pointer',
-            border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
-            background: playing ? T.redBg : T.amberBg,
-            color: playing ? T.red : T.amber,
-            letterSpacing:'0.05em',
-          }}>
-          {playing ? '■  Stop' : '▶  Play'}
-        </button>
-        <div style={{width:1, height:28, background:T.border, margin:'0 4px'}}/>
-        <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
-          {droneOn ? '◉' : '○'} Shruti drone
-        </button>
-        <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
-          {metroOn ? '◉' : '○'} Metronome
-        </button>
-        <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
-          {swaraOn ? '◉' : '○'} Swara audio
-        </button>
-      </div>
-
-      {/* Sequence */}
+  // ── Sequence rows (shared) ─────────────────────────────────
+  const sequenceRows = (
+    <>
       <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:8}}>
         ↑ ĀROHANA — {tala.name} ({tala.struct})
       </div>
@@ -733,8 +783,7 @@ export default function App() {
             {row.beats.map((b, bi) => {
               const start = active?.beatStart ?? -1
               const count = active?.count ?? 0
-              const rowLen = row.beats.length
-              const overflow = Math.max(0, start + count - rowLen)
+              const overflow = Math.max(0, start + count - row.beats.length)
               const isActive = isActiveRow
                 ? (bi >= start && bi < start + count)
                 : (active?.row === ri - 1 && bi < overflow)
@@ -748,7 +797,6 @@ export default function App() {
           </div>
         )
       })}
-
       <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', margin:'12px 0 8px'}}>
         ↓ AVAROHANA — {tala.name} ({tala.struct})
       </div>
@@ -767,8 +815,7 @@ export default function App() {
             {row.beats.map((b, bi) => {
               const start = active?.beatStart ?? -1
               const count = active?.count ?? 0
-              const rowLen = row.beats.length
-              const overflow = Math.max(0, start + count - rowLen)
+              const overflow = Math.max(0, start + count - row.beats.length)
               const isActive = isActiveRow
                 ? (bi >= start && bi < start + count)
                 : (active?.row === gr - 1 && bi < overflow)
@@ -782,72 +829,234 @@ export default function App() {
           </div>
         )
       })}
-
-      <div style={{marginTop:20, fontSize:10, color:T.dim}}>
-        Phase 1 · Alankaram Practice Guide ·
-      </div>
-    </div>
-  )
-
-  // ── Sidebar content (shared between drawer + desktop) ──────
-  const sidebarContent = (
-    <>
-      <div>
-        <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
-        <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx); setSidebarOpen(false) }} />
-      </div>
-      <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
-        <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
-      </div>
     </>
   )
 
+  // ── MOBILE ─────────────────────────────────────────────────
   if (isMobile) {
     return (
       <div style={{minHeight:'100vh', background:T.bg, color:T.text,
         fontFamily:'system-ui, sans-serif', fontSize:13}}>
 
-        {/* Mobile drawer overlay */}
-        {sidebarOpen && (
-          <div style={{position:'fixed', inset:0, zIndex:200, display:'flex'}}>
-            <div style={{width:280, background:T.sidebar, padding:'20px 16px',
-              overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center',
-                paddingBottom:12, borderBottom:`0.5px solid ${T.border}`}}>
-                <div style={{fontSize:14, color:T.amber, fontWeight:500}}>Rāgam</div>
-                <button onClick={() => setSidebarOpen(false)}
-                  style={{background:'none', border:'none', color:T.muted,
-                    fontSize:20, cursor:'pointer', padding:'0 4px'}}>✕</button>
-              </div>
-              {sidebarContent}
-            </div>
-            {/* Tap outside to close */}
-            <div style={{flex:1, background:'rgba(0,0,0,0.5)'}}
-              onClick={() => setSidebarOpen(false)}/>
-          </div>
+        {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+
+        {drawerOpen && (
+          <MobileDrawer
+            onClose={() => setDrawerOpen(false)}
+            raga={raga} ragaIdx={ragaIdx} setRagaIdx={setRagaIdx}
+            kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx}
+            metroOn={metroOn} setMetroOn={setMetroOn}
+            droneOn={droneOn} toggleDrone={toggleDrone}
+            swaraOn={swaraOn} setSwaraOn={setSwaraOn}
+            baseF={baseF} ctxRef={ctxRef} stop={stop}
+            showAbout={() => { setDrawerOpen(false); setAboutOpen(true) }}
+          />
         )}
 
-        {mainContent}
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between',
+          padding:'14px 16px 12px', borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{display:'flex', alignItems:'center', gap:10}}>
+            <div style={{
+              width:32, height:32, borderRadius:'50%', background:T.amberBg,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:17, color:T.amber, fontFamily:'"Noto Serif Tamil", serif',
+            }}>ப</div>
+            <div>
+              <div style={{fontSize:18, color:T.amber, lineHeight:1,
+                fontFamily:'"Cormorant Garamond", Georgia, serif',
+                fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
+              <div style={{fontSize:10, color:T.muted, marginTop:2, letterSpacing:'0.05em'}}>
+                Alankāram
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setDrawerOpen(true)}
+            style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
+              color:T.muted, fontSize:12, padding:'5px 10px', cursor:'pointer',
+              display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
+            ☰
+            <span style={{color:T.amber, fontWeight:500, maxWidth:100,
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+              {raga.name}
+            </span>
+          </button>
+        </div>
+
+        {/* Talam — horizontal scroll */}
+        <div style={{padding:'10px 16px', borderBottom:`0.5px solid ${T.border}`}}>
+          <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em', marginBottom:7}}>TĀLAM</div>
+          <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
+            activeBeat={active?.talaPos ?? null} onStop={stop} mobile={true} />
+        </div>
+
+        {/* Main scrollable content */}
+        <div style={{padding:'14px 16px', paddingBottom:80, overflowY:'auto'}}>
+
+          {/* BPM */}
+          <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16,
+            background:T.surface, borderRadius:8, padding:'10px 12px',
+            border:`0.5px solid ${T.border}`}}>
+            <Pendulum playing={playing} bpm={bpm} />
+            <input type="range" min="30" max="180" step="1" value={bpm}
+              onChange={e => setBpm(+e.target.value)}
+              style={{flex:1, accentColor:T.amber}} />
+          </div>
+
+          {sequenceRows}
+
+          <div style={{marginTop:20, fontSize:10, color:T.dim}}>
+            Phase 1 · Alankāram Practice ·{' '}
+            <span style={{cursor:'pointer', color:T.muted, textDecoration:'underline'}}
+              onClick={() => setAboutOpen(true)}>About</span>
+          </div>
+        </div>
+
+        {/* Sticky bottom bar */}
+        <div style={{position:'fixed', bottom:0, left:0, right:0,
+          background:T.sidebar, borderTop:`0.5px solid ${T.border}`,
+          padding:'10px 14px', display:'flex', alignItems:'center', gap:8}}>
+          <button onClick={playing ? stop : start}
+            style={{
+              flex:1, fontFamily:'inherit', fontSize:15, fontWeight:700,
+              padding:'12px', borderRadius:8, cursor:'pointer',
+              border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
+              background: playing ? T.redBg : T.amberBg,
+              color: playing ? T.red : T.amber,
+            }}>
+            {playing ? '■  Stop' : '▶  Play'}
+          </button>
+          <div style={{display:'flex', gap:4}}>
+            {kalamOpts.map(k => (
+              <button key={k.val} onClick={() => setKalam(k.val)}
+                style={{
+                  fontFamily:'inherit', padding:'10px 12px', borderRadius:6,
+                  fontSize:13, fontWeight:700, cursor:'pointer',
+                  border:`0.5px solid ${kalam===k.val ? T.amberBdr : T.border}`,
+                  background: kalam===k.val ? T.amberBg : T.surface,
+                  color: kalam===k.val ? T.amber : T.muted,
+                }}>
+                {k.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
+  // ── DESKTOP ────────────────────────────────────────────────
   return (
     <div style={{display:'grid', gridTemplateColumns:'240px 1fr', minHeight:'100vh',
       fontFamily:'system-ui, sans-serif', fontSize:13, background:T.bg, color:T.text}}>
 
-      {/* ── Desktop Sidebar ── */}
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+
+      {/* Sidebar */}
       <div style={{borderRight:`0.5px solid ${T.border}`, padding:'20px 16px',
         background:T.sidebar, overflowY:'auto', display:'flex', flexDirection:'column', gap:20}}>
-        {sidebarContent}
+        <div>
+          <div style={{fontSize:10, color:T.muted, letterSpacing:'0.05em', marginBottom:5}}>RĀGAM</div>
+          <RAAGAMearch value={ragaIdx} onChange={idx => { stop(); setRagaIdx(idx) }} />
+        </div>
+        <div style={{borderTop:`0.5px solid ${T.border}`, paddingTop:16}}>
+          <RagaPanel raga={raga} baseF={baseF} ctxRef={ctxRef} />
+        </div>
       </div>
 
-      {/* ── Main + Kattai ── */}
+      {/* Main + Kattai */}
       <div style={{display:'flex', overflowY:'auto'}}>
-        {mainContent}
+        <div style={{padding:'24px 28px', flex:1, maxWidth:760, overflowY:'auto'}}>
+
+          {/* Header */}
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between',
+            paddingBottom:20, marginBottom:8, borderBottom:`0.5px solid ${T.border}`}}>
+            <div style={{display:'flex', alignItems:'center', gap:12}}>
+              <div style={{
+                width:38, height:38, borderRadius:'50%', background:T.amberBg,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:20, color:T.amber, fontFamily:'"Noto Serif Tamil", serif',
+              }}>ப</div>
+              <div>
+                <div style={{fontSize:22, color:T.amber, lineHeight:1,
+                  fontFamily:'"Cormorant Garamond", Georgia, serif',
+                  fontWeight:400, letterSpacing:'1px'}}>Panchamam</div>
+                <div style={{fontSize:11, color:T.muted, marginTop:3, letterSpacing:'0.05em'}}>
+                  Alankāram
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setAboutOpen(true)}
+              style={{background:'none', border:`0.5px solid ${T.border}`, borderRadius:6,
+                color:T.muted, fontSize:12, padding:'6px 14px', cursor:'pointer',
+                fontFamily:'inherit'}}>
+              About
+            </button>
+          </div>
+
+          <TalamCards talaIdx={talaIdx} setTalaIdx={setTalaIdx}
+            activeBeat={active?.talaPos ?? null} onStop={stop} mobile={false} />
+
+          {/* Tempo + Kālam */}
+          <div style={{display:'flex', alignItems:'center', gap:20, marginBottom:16,
+            padding:'12px 16px', background:T.surface, borderRadius:8,
+            border:`0.5px solid ${T.border}`}}>
+            <Pendulum playing={playing} bpm={bpm} />
+            <div style={{flex:1, maxWidth:240}}>
+              <input type="range" min="30" max="180" step="1" value={bpm}
+                onChange={e => setBpm(+e.target.value)}
+                style={{width:'100%', accentColor:T.amber}} />
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:4, alignItems:'flex-end'}}>
+              <div style={{fontSize:9, color:T.muted, letterSpacing:'0.05em'}}>KĀLAM / SPEED</div>
+              <div style={{display:'flex', gap:4}}>
+                {kalamOpts.map(k => (
+                  <div key={k.val} style={{display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
+                    <button onClick={() => setKalam(k.val)}
+                      style={{...btn(kalam===k.val,'amber'), padding:'4px 10px', fontWeight:700}}>
+                      {k.label}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Transport */}
+          <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap',
+            paddingBottom:16, marginBottom:16, borderBottom:`0.5px solid ${T.border}`}}>
+            <button onClick={playing ? stop : start}
+              style={{
+                fontFamily:'inherit', fontSize:15, fontWeight:700,
+                padding:'12px 36px', borderRadius:8, cursor:'pointer',
+                border:`0.5px solid ${playing ? T.redBdr : T.amberBdr}`,
+                background: playing ? T.redBg : T.amberBg,
+                color: playing ? T.red : T.amber,
+                letterSpacing:'0.05em',
+              }}>
+              {playing ? '■  Stop' : '▶  Play'}
+            </button>
+            <div style={{width:1, height:28, background:T.border, margin:'0 4px'}}/>
+            <button onClick={toggleDrone} style={btn(droneOn,'teal')}>
+              {droneOn ? '◉' : '○'} Shruti drone
+            </button>
+            <button onClick={() => setMetroOn(v => !v)} style={btn(metroOn,'blue')}>
+              {metroOn ? '◉' : '○'} Metronome
+            </button>
+            <button onClick={() => setSwaraOn(v => !v)} style={btn(swaraOn,'amber')}>
+              {swaraOn ? '◉' : '○'} Swara audio
+            </button>
+          </div>
+
+          {sequenceRows}
+
+          <div style={{marginTop:20, fontSize:10, color:T.dim}}>
+            Phase 1 · Alankāram Practice Guide
+          </div>
+        </div>
+
         <KattaiPanel kattaiIdx={kattaiIdx} setKattaiIdx={setKattaiIdx} />
       </div>
-
     </div>
   )
 }
